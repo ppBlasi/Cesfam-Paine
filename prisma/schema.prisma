@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AreaExamen {
+  id_area_examen Int      @id @default(autoincrement())
+  nombre_area    String
+  examenes       Examen[]
+
+  @@map("area_examen")
+}
+
+model Examen {
+  id_examen      Int             @id @default(autoincrement())
+  nombre_examen  String
+  id_area_examen Int
+  detalle_examen DetalleExamen[]
+  area_examen    AreaExamen      @relation(fields: [id_area_examen], references: [id_area_examen])
+}
+
+model DetalleExamen {
+  id_detalle_examen Int           @id @default(autoincrement())
+  detalle           String
+  id_ficha_paciente Int
+  id_examen         Int
+  examen            Examen        @relation(fields: [id_examen], references: [id_examen])
+  ficha_paciente    FichaPaciente @relation(fields: [id_ficha_paciente], references: [id_ficha_paciente])
+}
+
+model DetalleConsulta {
+  id_detalle_consulta Int           @id @default(autoincrement())
+  resumen_consulta    String
+  id_reserva          Int           @unique
+  id_estado_reserva   Int
+  id_ficha_paciente   Int
+  estado_reserva      EstadoReserva @relation(fields: [id_estado_reserva], references: [id_estado_reserva])
+  ficha_paciente      FichaPaciente @relation(fields: [id_ficha_paciente], references: [id_ficha_paciente])
+  reserva             Reserva       @relation(fields: [id_reserva], references: [id_reserva])
+}
+
+model FichaPaciente {
+  id_ficha_paciente Int               @id @default(autoincrement())
+  descripcion       String
+  detalle_consultas DetalleConsulta[]
+  detalle_examenes  DetalleExamen[]
+  medicamentos      Medicamento[]
+  patologias        Patologia[]
+}
+
+model Patologia {
+  id_patologia      Int           @id @default(autoincrement())
+  nombre_patologia  String
+  id_ficha_paciente Int
+  ficha_paciente    FichaPaciente @relation(fields: [id_ficha_paciente], references: [id_ficha_paciente])
+}
+
+model CategoriaMedicamento {
+  id_categoria_medicamento Int           @id @default(autoincrement())
+  nombre_categoria         String
+  medicamentos             Medicamento[]
+}
+
+model Medicamento {
+  id_medicamento           Int                  @id @default(autoincrement())
+  nombre_medicamento       String
+  id_ficha_paciente        Int
+  id_categoria_medicamento Int
+  categoria_medicamento    CategoriaMedicamento @relation(fields: [id_categoria_medicamento], references: [id_categoria_medicamento])
+  ficha_paciente           FichaPaciente        @relation(fields: [id_ficha_paciente], references: [id_ficha_paciente])
+}
+
+model EstadoReserva {
+  id_estado_reserva Int               @id @default(autoincrement())
+  nombre_estado     String
+  detalle_consulta  DetalleConsulta[]
+  reservas          Reserva[]
+}
+
+model Reserva {
+  id_reserva        Int              @id @default(autoincrement())
+  fecha_reserva     String
+  id_estado_reserva Int
+  id_fecha_hora     Int
+  detalle_consulta  DetalleConsulta?
+  paciente          Paciente[]
+  estado            EstadoReserva    @relation(fields: [id_estado_reserva], references: [id_estado_reserva])
+  fecha_hora        FechaHora        @relation(fields: [id_fecha_hora], references: [id_fecha_hora])
+}
+
+model FechaHora {
+  id_fecha_hora Int        @id @default(autoincrement())
+  fecha_hora    DateTime
+  pacientes     Paciente[]
+  reservas      Reserva[]
+}
+
+model Paciente {
+  id_paciente             Int        @id @default(autoincrement())
+  primer_nombre_paciente  String
+  segundo_nombre_paciente String?
+  apellido_p_paciente     String
+  apellido_m_paciente     String
+  rut_paciente            String
+  celular_paciente        String
+  correo_paciente         String
+  id_reserva              Int?
+  id_fecha_hora           Int?
+  id_empresa              Int?
+  id_urgencia             Int?
+  empresa                 Empresa?   @relation(fields: [id_empresa], references: [id_empresa])
+  fecha_hora              FechaHora? @relation(fields: [id_fecha_hora], references: [id_fecha_hora])
+  reserva                 Reserva?   @relation(fields: [id_reserva], references: [id_reserva])
+  urgencia                Urgencia?  @relation(fields: [id_urgencia], references: [id_urgencia])
+  disponibilidades        DisponibilidadTrabajador[]
+}
+
+model Trabajador {
+  id_trabajador             Int           @id @default(autoincrement())
+  primer_nombre_trabajador  String
+  segundo_nombre_trabajador String?
+  apellido_p_trabajador     String
+  apellido_m_trabajador     String
+  rut_trabajador            String
+  celular_trabajador        String
+  correo_trabajador         String
+  direccion_trabajador      String
+  estado_trabajador         String
+  id_empresa                Int?
+  id_especialidad           Int?
+  empresa                   Empresa?      @relation(fields: [id_empresa], references: [id_empresa])
+  especialidad              Especialidad? @relation(fields: [id_especialidad], references: [id_especialidad])
+  disponibilidades          DisponibilidadTrabajador[]
+}
+
+model Especialidad {
+  id_especialidad     Int          @id @default(autoincrement())
+  nombre_especialidad String
+  trabajadores        Trabajador[]
+}
+
+model Empresa {
+  id_empresa        Int          @id @default(autoincrement())
+  nombre_empresa    String
+  direccion_empresa String
+  numero_empresa    String
+  correo_empresa    String
+  pacientes         Paciente[]
+  trabajadores      Trabajador[]
+}
+
+model Urgencia {
+  id_urgencia          Int        @id @default(autoincrement())
+  descripcion_urgencia String
+  numero_urgencia      Int
+  pacientes            Paciente[]
+}
+
+model Programa {
+  id_programa Int        @id @default(autoincrement())
+  nombre      String
+  servicios   Servicio[]
+
+  @@map("programa")
+}
+
+model Servicio {
+  id_servicio Int      @id @default(autoincrement())
+  nombre      String
+  id_programa Int
+  programa    Programa @relation(fields: [id_programa], references: [id_programa])
+
+  @@map("servicio")
+}
+
+model Usuario {
+  id_usuario Int       @id @default(autoincrement())
+  rut        String    @unique
+  password   String
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  sesiones   Session[]
+
+  @@map("usuario")
+}
+
+model Session {
+  id_session Int      @id @default(autoincrement())
+  token_hash String   @unique
+  user_id    Int
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  expires_at DateTime @db.Timestamp(6)
+  usuario    Usuario  @relation(fields: [user_id], references: [id_usuario], onDelete: Cascade, onUpdate: NoAction, map: "fk_session_usuario")
+
+  @@map("session")
+}
+
+model DisponibilidadTrabajador {
+  id_disponibilidad Int          @id @default(autoincrement())
+  id_trabajador     Int
+  fecha             DateTime
+  estado            String       @default("disponible")
+  trabajador        Trabajador   @relation(fields: [id_trabajador], references: [id_trabajador])
+  id_paciente       Int?
+  paciente          Paciente?    @relation(fields: [id_paciente], references: [id_paciente])
+  nota              String?
+  @@map("disponibilidad_trabajador")
+  @@unique([id_trabajador, fecha], map: "trabajador_fecha_unica")
+}

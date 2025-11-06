@@ -1,0 +1,133 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout>
+  <main class="px-6 py-12 max-w-6xl mx-auto text-gray-800 ">
+    <section class="text-start mb-10">
+      <h2 class="text-3xl md:text-4xl font-bold text-blue-700 mb-4 ">
+        Programa Nacional de Inmunizaciones
+      </h2>
+      <div class="w-24 h-1 bg-blue-600 mx-auto rounded"></div>
+    </section>
+
+    <section class="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10 mb-12">
+        <div class="flex justify-center md:justify-end md:w-1/2">
+            <img
+            src="/servicios/vacunador.webp"
+            alt="Vacunador"
+            class="rounded-xl shadow-md w-[16rem] h-[16rem] object-cover"
+            />
+        </div>
+
+        <div class="md:w-1/2 space-y-4 text-justify leading-relaxed px-4 md:px-0">
+            <p>
+            El Programa Nacional de Inmunización tiene como objetivo principal
+            asegurar la protección de la población residente en Chile frente a
+            enfermedades inmunoprevenibles relevantes para la salud pública, con
+            calidad, seguridad y eficiencia, acorde al desarrollo biotecnológico y
+            la evidencia científica.
+            </p>
+            <p>
+            Toda la población tiene el derecho de recibir sus inmunizaciones.
+            </p>
+        </div>
+    </section>
+
+
+
+    <section class="text-center mb-16">
+      <h3 class="text-2xl font-semibold text-blue-700 mb-6">
+        Horarios de Atención
+      </h3>
+
+      <div class="grid md:grid-cols-2 gap-8">
+        <div class="p-6 border rounded-xl shadow hover:shadow-md transition">
+          <h4 class="text-xl font-semibold mb-2">Mañana</h4>
+          <p>Lunes a Viernes de 08:30 a 13:00 horas</p>
+        </div>
+
+        <div class="p-6 border rounded-xl shadow hover:shadow-md transition">
+          <h4 class="text-xl font-semibold mb-2">Tarde</h4>
+          <p>Lunes a Jueves de 14:00 a 16:30 horas</p>
+          <p>Viernes de 14:00 a 15:00 horas</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="max-w-3xl mx-auto pb-2">
+      <h3 class="text-2xl font-semibold text-center text-blue-700 mb-6">
+        Preguntas Frecuentes
+      </h3>
+
+      <div class="space-y-4">
+        <details class="border rounded-lg p-4">
+          <summary class="font-semibold cursor-pointer">1. ¿Qué es una vacuna?</summary>
+          <p class="mt-2 text-gray-700">
+            Son productos biológicos que estimulan la producción de defensas
+            (anticuerpos) que protegen a las personas contra enfermedades graves.
+          </p>
+        </details>
+
+        <details class="border rounded-lg p-4">
+          <summary class="font-semibold cursor-pointer">2. ¿Qué enfermedades se previenen con las vacunas?</summary>
+          <ul class="list-disc list-inside mt-2 space-y-1">
+            <li>Tuberculosis</li><li>Hepatitis B</li><li>Difteria</li>
+            <li>Tétanos</li><li>Tos convulsiva</li><li>Poliomielitis</li>
+            <li>Neumococo</li><li>Sarampión</li><li>Influenza</li>
+          </ul>
+        </details>
+
+        <details class="border rounded-lg p-4">
+          <summary class="font-semibold cursor-pointer">3. ¿Por qué debo vacunar a mi hijo?</summary>
+          <p class="mt-2 text-gray-700">
+            Las vacunas protegen a los niños de enfermedades peligrosas que pueden
+            causar complicaciones graves o incluso la muerte.
+          </p>
+        </details>
+
+        <details class="border rounded-lg p-4">
+          <summary class="font-semibold cursor-pointer">4. ¿Pueden causar reacciones las vacunas?</summary>
+          <p class="mt-2 text-gray-700">
+            Algunas reacciones leves como fiebre o enrojecimiento pueden ocurrir
+            dentro de los primeros 3 días. Si se prolongan, consulte a un médico.
+          </p>
+        </details>
+
+        <details class="border rounded-lg p-4">
+          <summary class="font-semibold cursor-pointer">5. ¿Qué hacer en esos casos?</summary>
+          <ul class="list-disc list-inside mt-2 space-y-1">
+            <li>Dar líquidos o pecho si es lactante.</li>
+            <li>Colocar compresas frías.</li>
+            <li>No abrigar en exceso.</li>
+            <li>No tocar la zona de vacunación.</li>
+          </ul>
+        </details>
+
+        <details class="border rounded-lg p-4">
+          <summary class="font-semibold cursor-pointer">6. ¿Cuáles son las vías de administración?</summary>
+          <ul class="list-disc list-inside mt-2 space-y-1">
+            <li>Gotas orales</li>
+            <li>Inyección en brazos (mayores de 1 año)</li>
+            <li>Inyección en piernas (menores de 1 año)</li>
+          </ul>
+        </details>
+
+        <details class="border rounded-lg p-4">
+          <summary class="font-semibold cursor-pointer">7. ¿Cuándo se deben aplicar las vacunas?</summary>
+          <p class="mt-2 text-gray-700">
+            Se deben aplicar según la edad indicada en el calendario nacional.
+          </p>
+        </details>
+
+        <details class="border rounded-lg p-4 ">
+          <summary class="font-semibold cursor-pointer">8. ¿Son obligatorias las vacunas en Chile?</summary>
+          <p class="mt-2 text-gray-700">
+            Sí. El Programa Nacional de Inmunización establece vacunas
+            obligatorias para niños y adultos según el Ministerio de Salud.
+          </p>
+        </details>
+      </div>
+    </section>
+  </main>
+</Layout>

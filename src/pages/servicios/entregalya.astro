@@ -1,0 +1,104 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout>
+  <main class="max-w-5xl mx-auto px-4 md:px-8 py-10 space-y-10">
+    <!-- Título principal -->
+    <section class="text-center">
+      <h1 class="text-3xl font-bold mb-3">
+        Entrega de Leche y Alimentación Complementaria
+      </h1>
+      <div class="border-t-2 border-gray-300 w-24 mx-auto mb-6"></div>
+    </section>
+
+    <!-- Descripción general -->
+    <section class="space-y-4 text-justify">
+      <p>
+        En nuestros Centros de Salud, los pacientes pueden realizar el retiro de leche y alimentación
+        complementaria para embarazadas, niños, niñas y adultos mayores beneficiarios de los siguientes
+        programas:
+      </p>
+
+      <ul class="list-disc list-inside space-y-1">
+        <li><strong>Programa Nacional de Alimentación Complementaria (PNAC)</strong></li>
+        <li><strong>Programa de Alimentación Complementaria del Adulto Mayor (PACAM)</strong></li>
+      </ul>
+
+      <p>
+        A continuación, se detallan los horarios y puntos de entrega correspondientes a cada centro de salud
+        perteneciente al CESFAM Dr. Miguel Solar Parada:
+      </p>
+    </section>
+
+    <!-- Horarios por centro -->
+    <section class="space-y-8">
+      <!-- CESFAM Dr. Miguel Solar -->
+      <div class="border rounded-xl p-6 shadow-sm bg-gray-50">
+        <h2 class="text-xl font-semibold text-center mb-4">CESFAM Dr. Miguel Solar Parada</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+          <img
+            src="/header.jpg"
+            alt="CESFAM Dr. Miguel Solar Parada"
+            class="rounded-lg shadow-md max-w-[320px] w-full mx-auto object-cover"
+          />
+          <div class="space-y-2 text-gray-700">
+            <p>La entrega de leche y alimentos se realiza en el siguiente horario:</p>
+            <ul class="list-disc list-inside">
+              <li><strong>Mañana:</strong> 08:00 - 13:00 hrs (Lunes a Viernes)</li>
+              <li><strong>Tarde:</strong> 14:00 - 16:00 hrs (Lunes, Martes, Miércoles)</li>
+            </ul>
+            <p class="font-semibold mt-2">“Último día hábil del mes sin atención.”</p>
+          </div>
+        </div>
+      </div>
+
+
+    <section class="space-y-8">
+      <div class="border-t-2 border-gray-200 w-24 mx-auto"></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <a
+          href="/alimentacioncomp"
+          class="relative rounded-xl overflow-hidden shadow-md group"
+        >
+          <img
+            src="/programas/pnac.webp"
+            alt="Programa Nacional de Alimentación Complementaria"
+            class="w-full h-56 object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+          <div
+            class="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-center items-center text-white p-4"
+          >
+            <h3 class="text-2xl font-bold">PNAC</h3>
+            <p class="text-sm text-center">
+              Programa Nacional de Alimentación Complementaria
+            </p>
+            <span class="mt-2 underline text-sm">Leer más...</span>
+          </div>
+        </a>
+
+        <a
+          href="/alimentacioncomp"
+          class="relative rounded-xl overflow-hidden shadow-md group"
+        >
+          <img
+            src="/programas/pacam.webp"
+            alt="Programa de Alimentación Complementaria del Adulto Mayor"
+            class="w-full h-56 object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+          <div
+            class="absolute inset-0 bg-black bg-opacity-40 flex flex-col justify-center items-center text-white p-4"
+          >
+            <h3 class="text-2xl font-bold">PACAM</h3>
+            <p class="text-sm text-center">
+              Programa de Alimentación Complementaria del Adulto Mayor
+            </p>
+            <span class="mt-2 underline text-sm">Leer más...</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <div class="border-t-2 border-gray-200 w-32 mx-auto mt-10"></div>
+  </main>
+</Layout>

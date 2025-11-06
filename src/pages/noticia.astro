@@ -1,0 +1,99 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+<Layout>
+  <main class="max-w-6xl mx-auto px-4 md:px-8 py-10">
+    <section class="text-start mb-10">
+      <h1 class="text-3xl font-bold mb-3">Noticias</h1>
+      <div class="border-t-2 border-gray-300 w-24"></div>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+
+      <article class="bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
+        <img
+          src="/noticias/rehabilitacion.png"
+          alt="Apertura del ala de rehabilitación en CESFAM Dr. Miguel Solar"
+          class="w-full h-52 object-cover"
+        />
+        <div class="p-6 flex flex-col flex-grow">
+          <h2 class="text-xl font-semibold text-center mb-2">
+            Nueva ala de rehabilitación para adultos mayores
+          </h2>
+          <p class="text-gray-500 text-sm text-center mb-4">
+            Fecha de publicación: 05 de Octubre de 2025
+          </p>
+          <p class="text-justify flex-grow">
+            El CESFAM Dr. Miguel Solar de Paine inauguró una nueva ala dedicada a la rehabilitación de adultos mayores. 
+            Este espacio busca fortalecer la recuperación funcional, la movilidad y la calidad de vida de los usuarios, 
+            con atención personalizada y equipos de última generación. 
+            Se prioriza la atención integral junto al trabajo de kinesiólogos, terapeutas ocupacionales y técnicos especializados.
+          </p>
+          <a
+            href="/noticia-rehabilitacion"
+            class="mt-6 inline-block text-center bg-[#200934] text-white px-4 py-2 rounded-lg"
+          >
+            Leer más
+          </a>
+        </div>
+      </article>
+
+      <article class="bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
+        <img
+          src="/noticias/info4.png"
+          alt="Alerta por estafas telefónicas"
+          class="w-full h-52 object-cover"
+        />
+        <div class="p-6 flex flex-col flex-grow">
+          <h2 class="text-xl font-semibold text-center mb-2">
+            Alerta por estafas telefónicas relacionadas con entrega de leche
+          </h2>
+          <p class="text-gray-500 text-sm text-center mb-4">
+            Fecha de publicación: 02 de Octubre de 2025
+          </p>
+          <p class="text-justify flex-grow">
+            Se informa a la comunidad que personas ajenas al CESFAM Dr. Miguel Solar están realizando llamados telefónicos 
+            donde ofrecen “leche nueva” y solicitan datos personales o bancarios. 
+            Recordamos que nuestros programas de alimentación (PNAC y PACAM) no requieren información por teléfono. 
+            Ante cualquier duda, comuníquese directamente con su centro de salud o diríjase al módulo de entrega.
+          </p>
+          <a
+            href="/noticia-estafas"
+            class="mt-6 inline-block text-center bg-[#200934] text-white px-4 py-2 rounded-lg"
+          >
+            Leer más
+          </a>
+        </div>
+      </article>
+
+      <article class="bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
+        <img
+          src="/noticias/info5.png"
+          alt="Campaña sobre enfermedades respiratorias"
+          class="w-full h-52 object-cover"
+        />
+        <div class="p-6 flex flex-col flex-grow">
+          <h2 class="text-xl font-semibold text-center mb-2">
+            Recomendaciones ante enfermedades respiratorias
+          </h2>
+          <p class="text-gray-500 text-sm text-center mb-4">
+            Fecha de publicación: 29 de Septiembre de 2025
+          </p>
+          <p class="text-justify flex-grow">
+            En el marco del aumento de enfermedades respiratorias, el CESFAM Dr. Miguel Solar recuerda la importancia 
+            de reconocer signos de alarma en menores de 5 años y mayores de 65. 
+            Dificultad respiratoria, fiebre persistente o decaimiento son síntomas que requieren atención inmediata. 
+            Se recomienda ventilar los espacios, mantener las vacunas al día y evitar la exposición al frío.
+          </p>
+          <a
+            href="/noticia-respiratorias"
+            class="mt-6 inline-block text-center bg-[#200934] text-white px-4 py-2 rounded-lg"
+          >
+            Leer más
+          </a>
+        </div>
+      </article>
+
+    </section>
+  </main>
+</Layout>

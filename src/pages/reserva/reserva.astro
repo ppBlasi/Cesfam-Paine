@@ -1,0 +1,105 @@
+---
+import ReserveScheduler from "../../components/ReserveScheduler.vue";
+import Layout from "../../layouts/Layout.astro";
+import { prisma } from "../../lib/prisma";
+
+const user = Astro.locals.user;
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+const title = "Reserva de hora";
+
+const patient = await prisma.paciente.findFirst({
+  where: { rut_paciente: user.rut },
+  select: {
+    primer_nombre_paciente: true,
+    segundo_nombre_paciente: true,
+    apellido_p_paciente: true,
+    apellido_m_paciente: true,
+  },
+});
+
+const patientName = patient
+  ? [
+      patient.primer_nombre_paciente,
+      patient.segundo_nombre_paciente,
+      patient.apellido_p_paciente,
+      patient.apellido_m_paciente,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  : null;
+---
+
+<Layout title={title}>
+  <section class="bg-[#f4f1fb] py-10">
+    <div class="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 sm:px-6">
+      <header class="rounded-3xl bg-gradient-to-r from-[#200934] via-[#321355] to-[#200934] px-6 py-8 text-white shadow-2xl">
+        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">Agenda en linea</p>
+        <h1 class="mt-3 text-3xl font-bold">Reserva tu hora con Medicina General</h1>
+        <p class="mt-2 max-w-2xl text-white/80">
+          Selecciona un dia y horario disponible. Esta primera version permite reservar solo con medicos generales.
+          Pronto habilitaremos mas especialidades.
+        </p>
+        {patientName ? (
+          <p class="mt-4 text-sm">
+            Paciente: <span class="font-semibold text-white">{patientName}</span>
+          </p>
+        ) : (
+          <p class="mt-4 text-sm text-amber-200">
+            No pudimos encontrar tus datos en la ficha de pacientes. Acercate al CESFAM para registrarlos y poder reservar.
+          </p>
+        )}
+      </header>
+
+      <div class="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <article class="rounded-3xl bg-white p-6 shadow-xl">
+          <h2 class="text-xl font-semibold text-[#200934]">Requisitos</h2>
+          <ul class="mt-4 space-y-3 text-sm text-[#200934]/80">
+            <li class="flex items-start gap-3">
+              <span class="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+              Ser paciente inscrito en el CESFAM con datos de contacto actualizados.
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+              Solo se agendan consultas con profesionales de Medicina General.
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+              Si no encuentras horas disponibles, vuelve a revisar durante el dia: actualizamos la agenda constantemente.
+            </li>
+          </ul>
+          <p class="mt-4 rounded-2xl bg-[#f4f1fb] p-4 text-sm text-[#200934]">
+            ¿Necesitas cancelar o reagendar? Comunicate con nuestra mesa de ayuda al +56 9 7208 4570 indicando tu RUT
+            y el horario reservado.
+          </p>
+        </article>
+
+        <article class="rounded-3xl bg-white p-6 shadow-xl">
+          <h2 class="text-xl font-semibold text-[#200934]">Pasos para agendar</h2>
+          <ol class="mt-4 space-y-3 text-sm text-[#200934]/80">
+            <li>
+              <strong class="text-[#200934]">1.</strong> Elige un dia disponible en el calendario.
+            </li>
+            <li>
+              <strong class="text-[#200934]">2.</strong> Selecciona la hora que mejor se ajuste.
+            </li>
+            <li>
+              <strong class="text-[#200934]">3.</strong> Elige al medico general disponible y confirma tu reserva.
+            </li>
+            <li>
+              <strong class="text-[#200934]">4.</strong> Recibiras la confirmacion inmediata en pantalla.
+            </li>
+          </ol>
+          <p class="mt-4 text-xs text-[#200934]/60">
+            Para asegurar la calidad del servicio, cada paciente puede mantener una sola hora pendiente por especialidad.
+          </p>
+        </article>
+      </div>
+
+      <ReserveScheduler client:load patientName={patientName ?? ""} />
+    </div>
+  </section>
+</Layout>

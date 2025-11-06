@@ -1,0 +1,246 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const title = "Iniciar sesion";
+---
+<Layout title={title}>
+  <section class="bg-gradient-to-b from-[#200934] via-[#2d1250] to-[#200934] py-12 md:py-20">
+    <div class="mx-auto flex max-w-5xl flex-col gap-10 px-4 sm:px-6 md:flex-row md:items-center md:justify-between">
+      <div class="text-center text-white md:max-w-md md:text-left">
+        <h1 class="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl">Inicia sesion con tu RUT</h1>
+        <p class="mt-4 text-base text-white/80 md:text-lg">
+          Accede a tus reservas, resultados y recordatorios de salud de manera segura y rapida.
+        </p>
+      </div>
+
+      <div class="w-full max-w-lg rounded-3xl bg-white/95 p-8 shadow-2xl backdrop-blur-md sm:p-10">
+        <form id="login-form" class="space-y-6" autocomplete="on">
+          <div>
+            <label for="rut" class="mb-2 block text-sm font-semibold text-[#200934]">RUT</label>
+            <input
+              id="rut"
+              name="rut"
+              type="text"
+              inputmode="text"
+              placeholder="12.345.678-9"
+              class="w-full rounded-2xl border border-[#200934]/20 bg-white px-4 py-3 text-base text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/40"
+              required
+            />
+          </div>
+
+          <div>
+            <label for="password" class="mb-2 block text-sm font-semibold text-[#200934]">Contrasena</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Ingresa tu contrasena"
+              class="w-full rounded-2xl border border-[#200934]/20 bg-white px-4 py-3 text-base text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/40"
+              required
+            />
+          </div>
+
+          <div class="space-y-3">
+            <button
+              id="login-submit"
+              type="submit"
+              class="w-full rounded-2xl bg-[#200934] px-6 py-3 text-base font-semibold text-white transition hover:bg-[#321355] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#200934] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Ingresar
+            </button>
+            <p id="login-status" class="min-h-[1.25rem] text-center text-sm font-medium text-[#200934]" aria-live="polite"></p>
+          </div>
+        </form>
+
+        <div class="mt-8 border-t border-[#200934]/10 pt-6">
+          <button
+            id="recover-toggle"
+            type="button"
+            class="flex w-full items-center justify-between rounded-2xl border border-[#200934]/20 bg-white px-4 py-3 text-sm font-semibold text-[#200934] transition hover:border-[#200934]/40 hover:bg-[#f4f1fb] focus:outline-none focus:ring-2 focus:ring-[#200934]/30"
+            aria-expanded="false"
+            aria-controls="recover-panel"
+          >
+            Olvidaste tu contrasena?
+            <span class="text-xs uppercase tracking-wide text-[#200934]/70">Recuperar</span>
+          </button>
+
+          <div id="recover-panel" class="mt-4 hidden rounded-2xl border border-dashed border-[#200934]/20 bg-[#f9f7ff] p-5">
+            <form id="recover-form" class="space-y-4">
+              <p class="text-sm text-[#200934]/80">
+                Ingresa tu RUT para enviarte un enlace de recuperacion. Revisa tu bandeja de entrada y sigue las instrucciones.
+              </p>
+              <div>
+                <label for="recover-rut" class="mb-2 block text-sm font-semibold text-[#200934]">RUT</label>
+                <input
+                  id="recover-rut"
+                  name="rut"
+                  type="text"
+                  inputmode="text"
+                  placeholder="12.345.678-9"
+                  class="w-full rounded-2xl border border-[#200934]/20 bg-white px-4 py-3 text-base text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/40"
+                  required
+                />
+              </div>
+              <div class="space-y-2">
+                <button
+                  id="recover-submit"
+                  type="submit"
+                  class="w-full rounded-2xl bg-[#321355] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#200934] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Enviar instrucciones
+                </button>
+                <p id="recover-status" class="min-h-[1.25rem] text-center text-sm font-medium text-[#200934]" aria-live="polite"></p>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<script type="module">
+  const normalizeRut = (value) => {
+    const cleaned = value.replace(/[^0-9kK]/g, '').toUpperCase();
+    if (cleaned.length <= 1) return cleaned;
+    const body = cleaned.slice(0, -1);
+    const verifier = cleaned.slice(-1);
+    return `${body}-${verifier}`;
+  };
+
+  const attachRutFormatter = (input) => {
+    if (!input) return;
+    input.addEventListener('blur', () => {
+      input.value = normalizeRut(input.value);
+    });
+  };
+
+  const loginForm = document.querySelector('#login-form');
+  const loginStatus = document.querySelector('#login-status');
+  const loginButton = document.querySelector('#login-submit');
+
+  const recoverToggle = document.querySelector('#recover-toggle');
+  const recoverPanel = document.querySelector('#recover-panel');
+  const recoverForm = document.querySelector('#recover-form');
+  const recoverStatus = document.querySelector('#recover-status');
+  const recoverButton = document.querySelector('#recover-submit');
+
+  attachRutFormatter(document.querySelector('#rut'));
+  attachRutFormatter(document.querySelector('#recover-rut'));
+
+  if (recoverToggle && recoverPanel) {
+    recoverToggle.addEventListener('click', () => {
+      const isHidden = recoverPanel.classList.toggle('hidden');
+      recoverToggle.setAttribute('aria-expanded', (!isHidden).toString());
+    });
+  }
+
+  if (loginForm && loginButton && loginStatus) {
+    loginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      loginStatus.textContent = '';
+      const formData = new FormData(loginForm);
+      const rut = formData.get('rut')?.toString() ?? '';
+      const password = formData.get('password')?.toString() ?? '';
+
+      if (!rut || !password) {
+        loginStatus.textContent = 'Completa todos los campos.';
+        loginStatus.classList.remove('text-emerald-600');
+        loginStatus.classList.add('text-rose-600');
+        return;
+      }
+
+      const originalText = loginButton.textContent;
+      loginButton.textContent = 'Validando';
+      loginButton.disabled = true;
+
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rut, password }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          loginStatus.textContent = data.error ?? 'No pudimos iniciar tu sesion.';
+          loginStatus.classList.remove('text-emerald-600');
+          loginStatus.classList.add('text-rose-600');
+          return;
+        }
+
+        const successMessage = data.isAdmin
+          ? 'Accediendo al panel administrativo.'
+          : data.isWorker
+          ? 'Accediendo al espacio del trabajador.'
+          : data.message ?? 'Sesion iniciada.';
+        loginStatus.textContent = successMessage;
+        loginStatus.classList.remove('text-rose-600');
+        loginStatus.classList.add('text-emerald-600');
+        const redirectUrl = data.redirect ?? '/perfil';
+        setTimeout(() => {
+          window.location.href = redirectUrl;
+        }, 400);
+      } catch (error) {
+        console.error(error);
+        loginStatus.textContent = 'Error de conexion. Intenta nuevamente.';
+        loginStatus.classList.remove('text-emerald-600');
+        loginStatus.classList.add('text-rose-600');
+      } finally {
+        loginButton.textContent = originalText;
+        loginButton.disabled = false;
+      }
+    });
+  }
+
+  if (recoverForm && recoverButton && recoverStatus) {
+    recoverForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      recoverStatus.textContent = '';
+      const formData = new FormData(recoverForm);
+      const rut = formData.get('rut')?.toString() ?? '';
+
+      if (!rut) {
+        recoverStatus.textContent = 'Ingresa un RUT valido.';
+        recoverStatus.classList.remove('text-emerald-600');
+        recoverStatus.classList.add('text-rose-600');
+        return;
+      }
+
+      const originalText = recoverButton.textContent;
+      recoverButton.textContent = 'Enviando...';
+      recoverButton.disabled = true;
+
+      try {
+        const response = await fetch('/api/recover-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rut }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          recoverStatus.textContent = data.error ?? 'No pudimos procesar tu solicitud.';
+          recoverStatus.classList.remove('text-emerald-600');
+          recoverStatus.classList.add('text-rose-600');
+          return;
+        }
+
+        recoverStatus.textContent = data.message ?? 'Revisa tu correo para continuar.';
+        recoverStatus.classList.remove('text-rose-600');
+        recoverStatus.classList.add('text-emerald-600');
+      } catch (error) {
+        console.error(error);
+        recoverStatus.textContent = 'Error de conexion. Intenta nuevamente.';
+        recoverStatus.classList.remove('text-emerald-600');
+        recoverStatus.classList.add('text-rose-600');
+      } finally {
+        recoverButton.textContent = originalText;
+        recoverButton.disabled = false;
+      }
+    });
+  }
+</script>

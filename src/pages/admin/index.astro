@@ -1,0 +1,89 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { prisma } from "../../lib/prisma";
+
+const user = Astro.locals.user;
+
+if (!user?.isAdmin) {
+  return Astro.redirect("/");
+}
+
+const totalUsuarios = await prisma.usuario.count();
+const totalTrabajadores = await prisma.trabajador.count();
+const reservasPendientes = await prisma.reserva.count({
+  where: { estado: { nombre_estado: "Pendiente" } },
+});
+---
+
+<Layout title="Panel administrativo">
+  <section class="bg-gradient-to-b from-[#200934] via-[#2d1250] to-[#200934] py-12">
+    <div class="mx-auto flex max-w-6xl flex-col gap-10 px-4 sm:px-6">
+      <header class="text-white">
+        <p class="text-sm uppercase tracking-widest text-white/70">Area administrativa</p>
+        <h1 class="mt-3 text-3xl font-bold sm:text-4xl">Panel de control</h1>
+        <p class="mt-2 max-w-2xl text-white/80">
+          Revisa indicadores rapidos y accede a las herramientas de gestion exclusivas para el equipo administrador.
+        </p>
+      </header>
+
+      <section class="grid gap-6 md:grid-cols-3">
+        <article class="rounded-3xl bg-white/95 p-6 shadow-2xl backdrop-blur">
+          <p class="text-sm font-semibold text-[#200934]/70">Usuarios registrados</p>
+          <p class="mt-2 text-3xl font-bold text-[#200934]">{totalUsuarios}</p>
+          <p class="mt-1 text-sm text-[#200934]/60">Incluye pacientes y personal con acceso a la plataforma.</p>
+        </article>
+
+        <article class="rounded-3xl bg-white/95 p-6 shadow-2xl backdrop-blur">
+          <p class="text-sm font-semibold text-[#200934]/70">Trabajadores activos</p>
+          <p class="mt-2 text-3xl font-bold text-[#200934]">{totalTrabajadores}</p>
+          <p class="mt-1 text-sm text-[#200934]/60">Profesionales con informacion registrada en el sistema.</p>
+        </article>
+
+        <article class="rounded-3xl bg-white/95 p-6 shadow-2xl backdrop-blur">
+          <p class="text-sm font-semibold text-[#200934]/70">Reservas pendientes</p>
+          <p class="mt-2 text-3xl font-bold text-[#200934]">{reservasPendientes}</p>
+          <p class="mt-1 text-sm text-[#200934]/60">Citas que requieren revision o confirmacion.</p>
+        </article>
+      </section>
+
+      <section class="grid gap-6 md:grid-cols-2">
+        <article class="rounded-3xl bg-white p-6 shadow-lg">
+          <h2 class="text-xl font-semibold text-[#200934]">Herramientas rapidas</h2>
+          <ul class="mt-4 space-y-3 text-sm text-[#200934]/80">
+            <li>
+              <a href="/admin/reservas" class="block rounded-2xl border border-[#200934]/15 px-4 py-3 transition hover:border-[#200934]/30 hover:bg-[#f7f4ff]">
+                Gestionar reservas del dia
+              </a>
+            </li>
+            <li>
+              <a href="/admin/trabajadores" class="block rounded-2xl border border-[#200934]/15 px-4 py-3 transition hover:border-[#200934]/30 hover:bg-[#f7f4ff]">
+                Administrar equipo y especialidades
+              </a>
+            </li>
+            <li>
+              <a href="/admin/agenda" class="block rounded-2xl border border-[#200934]/15 px-4 py-3 transition hover:border-[#200934]/30 hover:bg-[#f7f4ff]">
+                Asignar dias y horarios de trabajo
+              </a>
+            </li>
+            <li>
+              <a href="/admin/contenido" class="block rounded-2xl border border-[#200934]/15 px-4 py-3 transition hover:border-[#200934]/30 hover:bg-[#f7f4ff]">
+                Actualizar informacion publica
+              </a>
+            </li>
+          </ul>
+        </article>
+
+        <article class="rounded-3xl bg-white p-6 shadow-lg">
+          <h2 class="text-xl font-semibold text-[#200934]">Siguientes pasos</h2>
+          <p class="mt-2 text-sm text-[#200934]/80">
+            Comparte las funciones especificas que necesitas y configuraremos las pantallas y permisos del panel.
+            Este espacio se puede adaptar para mostrar reportes, carga de turnos, aprobacion de solicitudes u otras tareas.
+          </p>
+          <p class="mt-4 text-sm font-medium text-[#200934]">
+            Escribenos los flujos deseados y los implementamos.
+          </p>
+        </article>
+      </section>
+    </div>
+  </section>
+</Layout>

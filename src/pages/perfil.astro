@@ -1,0 +1,175 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { prisma } from "../lib/prisma";
+
+const user = Astro.locals.user;
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+const patient = await prisma.paciente.findFirst({
+  where: { rut_paciente: user.rut },
+  select: {
+    id_paciente: true,
+    primer_nombre_paciente: true,
+    segundo_nombre_paciente: true,
+    apellido_p_paciente: true,
+    apellido_m_paciente: true,
+    celular_paciente: true,
+    correo_paciente: true,
+  },
+});
+
+const legacyReservations = patient
+  ? await prisma.reserva.findMany({
+      where: { paciente: { some: { id_paciente: patient.id_paciente } } },
+      include: {
+        estado: true,
+        fecha_hora: true,
+      },
+      orderBy: { fecha_reserva: "desc" },
+      take: 5,
+    })
+  : [];
+
+const slotReservations = patient
+  ? await prisma.disponibilidadTrabajador.findMany({
+      where: { id_paciente: patient.id_paciente },
+      include: {
+        trabajador: {
+          select: {
+            primer_nombre_trabajador: true,
+            segundo_nombre_trabajador: true,
+            apellido_p_trabajador: true,
+            apellido_m_trabajador: true,
+            especialidad: { select: { nombre_especialidad: true } },
+          },
+        },
+      },
+      orderBy: { fecha: "desc" },
+      take: 5,
+    })
+  : [];
+
+const reservations = [
+  ...legacyReservations.map((reservation) => ({
+    id: `legacy-${reservation.id_reserva}`,
+    dateLabel: reservation.fecha_reserva,
+    statusLabel: reservation.estado?.nombre_estado ?? "Pendiente",
+    datetime: reservation.fecha_hora?.fecha_hora ?? null,
+    doctorName: null,
+    specialty: null,
+  })),
+  ...slotReservations.map((slot) => ({
+    id: `slot-${slot.id_disponibilidad}`,
+    dateLabel: slot.fecha.toLocaleDateString("es-CL", { dateStyle: "medium" }),
+    statusLabel: slot.estado.charAt(0).toUpperCase() + slot.estado.slice(1),
+    datetime: slot.fecha,
+    doctorName: [
+      slot.trabajador.primer_nombre_trabajador,
+      slot.trabajador.segundo_nombre_trabajador,
+      slot.trabajador.apellido_p_trabajador,
+      slot.trabajador.apellido_m_trabajador,
+    ]
+      .filter(Boolean)
+      .join(" "),
+    specialty: slot.trabajador.especialidad?.nombre_especialidad ?? "Medicina General",
+  })),
+]
+  .sort((a, b) => {
+    const dateA = a.datetime ? new Date(a.datetime).getTime() : 0;
+    const dateB = b.datetime ? new Date(b.datetime).getTime() : 0;
+    return dateB - dateA;
+  })
+  .slice(0, 5);
+
+const fullName = patient
+  ? [
+      patient.primer_nombre_paciente,
+      patient.segundo_nombre_paciente,
+      patient.apellido_p_paciente,
+      patient.apellido_m_paciente,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  : null;
+
+const formatDateTime = (value: Date | null | undefined) =>
+  value ? value.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : "Sin asignar";
+---
+<Layout title="Mi perfil">
+  <section class="bg-[#f4f1fb] py-10">
+    <div class="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 sm:px-6">
+      <header class="rounded-3xl bg-[#200934] px-6 py-8 text-white shadow-xl">
+        <p class="text-sm uppercase tracking-[0.35em] text-white/70">Mi cesfam</p>
+        <h1 class="mt-3 text-3xl font-bold">Perfil de usuario</h1>
+        <p class="mt-2 text-white/80">Rut asociado: <span class="font-semibold text-white">{user.rut}</span></p>
+        {fullName ? (
+          <p class="mt-1 text-white/80">Nombre completo: <span class="font-semibold text-white">{fullName}</span></p>
+        ) : (
+          <p class="mt-1 text-white/70">
+            No encontramos datos personales asociados. Completa tu información en el centro de atención.
+          </p>
+        )}
+      </header>
+
+      <div class="grid gap-6 md:grid-cols-5">
+        <article class="order-2 rounded-3xl bg-white p-6 shadow-lg md:order-1 md:col-span-3">
+          <h2 class="text-xl font-semibold text-[#200934]">Reservas recientes</h2>
+          {reservations.length > 0 ? (
+            <ul class="mt-4 space-y-4">
+              {reservations.map((reservation) => (
+                <li class="rounded-2xl bg-[#f9f7ff] p-4">
+                  <p class="text-sm font-semibold text-[#200934]">{reservation.dateLabel}</p>
+                  <p class="text-sm text-[#200934]/70">
+                    Estado: <span class="font-medium text-[#200934]">{reservation.statusLabel}</span>
+                  </p>
+                  <p class="text-sm text-[#200934]/70">
+                    Fecha y hora:{" "}
+                    <span class="font-medium text-[#200934]">
+                      {reservation.datetime ? formatDateTime(reservation.datetime) : reservation.dateLabel}
+                    </span>
+                  </p>
+                  {reservation.doctorName ? (
+                    <p class="text-sm text-[#200934]/70">
+                      Profesional:{" "}
+                      <span class="font-medium text-[#200934]">
+                        {reservation.doctorName} ({reservation.specialty})
+                      </span>
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p class="mt-4 rounded-2xl bg-[#f9f7ff] p-4 text-sm text-[#200934]">
+              Todavía no registras reservas. Dirígete a la sección "Reserva tu Hora" para agendar una atención.
+            </p>
+          )}
+        </article>
+
+        <aside class="order-1 flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-lg md:order-2 md:col-span-2">
+          <h2 class="text-xl font-semibold text-[#200934]">Contacto</h2>
+          <dl class="mt-2 space-y-3 text-sm text-[#200934]/80">
+            <div>
+              <dt class="font-semibold text-[#200934]">Correo</dt>
+              <dd>{patient?.correo_paciente ?? 'Sin información'}</dd>
+            </div>
+            <div>
+              <dt class="font-semibold text-[#200934]">Telefono</dt>
+              <dd>{patient?.celular_paciente ?? 'Sin información'}</dd>
+            </div>
+          </dl>
+
+          <a
+            href="/reserva/reserva"
+            class="mt-4 inline-flex items-center justify-center rounded-2xl bg-[#200934] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#321355]"
+          >
+            Ir a reservar una hora
+          </a>
+        </aside>
+      </div>
+    </div>
+  </section>
+</Layout>

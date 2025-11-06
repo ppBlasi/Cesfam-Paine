@@ -1,0 +1,105 @@
+<footer class="mt-auto w-full bg-gradient-to-b from-[#1b0f2b] via-[#200934] to-[#12061f] text-white shadow-inner">
+  <div class="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10 lg:px-6">
+    <div class="grid gap-8 md:grid-cols-[1.05fr_1.35fr_0.9fr]">
+      <div class="space-y-4">
+        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-white/60">Contacto</p>
+        <h2 class="text-2xl font-semibold leading-tight md:text-3xl">CESFAM Dr. Miguel Solar</h2>
+        <ul class="space-y-2 text-sm text-white/80">
+          <li>
+            <span class="font-semibold text-white">Direccion:</span>
+            Acceso 1 2-98, Paine, Region Metropolitana
+          </li>
+          <li>
+            <span class="font-semibold text-white">Telefono:</span>
+            800 000 138
+          </li>
+          <li>
+            <span class="font-semibold text-white">Correo:</span>
+            cesfam@paine.cl
+          </li>
+          <li>
+            <span class="font-semibold text-white">Horario general:</span>
+            Lun a Sab de 08:00 a 20:00
+          </li>
+        </ul>
+        <div class="flex flex-wrap gap-3 pt-2 text-sm">
+          <a
+            href="tel:800000138"
+            class="rounded-full border border-white/20 px-4 py-2 font-semibold text-white transition hover:border-white hover:bg-white/10"
+          >
+            Llamar ahora
+          </a>
+          <a
+            href="mailto:cesfam@paine.cl"
+            class="rounded-full bg-white/15 px-4 py-2 font-semibold text-white transition hover:bg-white/25"
+          >
+            Escribir correo
+          </a>
+        </div>
+      </div>
+
+      <div class="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-white/60">Donde estamos</p>
+        <p class="mt-2 text-lg font-semibold">Visitanos en Paine</p>
+        <p class="text-sm text-white/70">
+          Estamos ubicados a pasos de la plaza principal. Puedes encontrarnos facilmente en la siguiente referencia.
+        </p>
+        <div class="mt-4 overflow-hidden rounded-2xl border border-white/10 shadow-lg">
+          <img
+            src="/maps.png"
+            alt="Mapa de ubicacion del CESFAM Dr. Miguel Solar"
+            class="h-64 w-full object-cover"
+            loading="lazy"
+          />
+        </div>
+        <a
+          href="https://www.google.com/maps/search/?api=1&query=Acceso+1+2-98,+Paine"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-white transition hover:text-emerald-200"
+        >
+          Abrir en Google Maps
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+
+      <div class="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-white/60">Vacunacion</p>
+        <p class="mt-2 text-lg font-semibold">Campanas activas</p>
+        <p class="text-sm text-white/70">
+          Revisa los calendarios vigentes y acude con tu carnet al punto de vacunacion.
+        </p>
+        <div class="mt-4 overflow-hidden rounded-2xl border border-white/10 shadow-lg">
+          <img
+            src="/index/4.png"
+            alt="Campana de vacunacion"
+            class="h-64 w-full object-cover"
+            loading="lazy"
+          />
+        </div>
+        <ul class="mt-4 space-y-2 text-sm text-white/80">
+          <li>- Influenza y COVID-19 2025</li>
+          <li>- Pediatrica de Lunes a Viernes</li>
+          <li>- CAPS Sabatino de 09:00 a 13:00</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="border-t border-white/10 pt-6 text-center text-xs text-white/60">
+      © {new Date().getFullYear()} CESFAM Dr. Miguel Solar. Todos los derechos reservados.
+    </div>
+  </div>
+</footer>
+
+<style is:global>
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: #f8f6ff;
+  }
+
+  body > footer {
+    margin-top: auto;
+  }
+</style>

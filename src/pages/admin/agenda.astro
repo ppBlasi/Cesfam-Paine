@@ -1,0 +1,499 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { prisma } from "../../lib/prisma";
+import { ADMIN_SPECIALTY_NAME } from "../../utils/admin";
+
+const user = Astro.locals.user;
+
+if (!user?.isAdmin) {
+  return Astro.redirect("/");
+}
+
+const nonAdminFilter = {
+  OR: [
+    { especialidad: { is: null } },
+    {
+      especialidad: {
+        is: { nombre_especialidad: { not: ADMIN_SPECIALTY_NAME } },
+      },
+    },
+  ],
+};
+
+const trabajadores = await prisma.trabajador.findMany({
+  where: nonAdminFilter,
+  orderBy: [
+    { estado_trabajador: "asc" },
+    { apellido_p_trabajador: "asc" },
+    { apellido_m_trabajador: "asc" },
+  ],
+  include: {
+    especialidad: {
+      select: {
+        id_especialidad: true,
+        nombre_especialidad: true,
+      },
+    },
+  },
+});
+
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+const twoWeeksAhead = new Date(today);
+twoWeeksAhead.setDate(twoWeeksAhead.getDate() + 14);
+
+const disponibilidades = await prisma.disponibilidadTrabajador.findMany({
+  where: {
+    trabajador: nonAdminFilter,
+    fecha: {
+      gte: today,
+      lte: twoWeeksAhead,
+    },
+  },
+  orderBy: [
+    { id_trabajador: "asc" },
+    { fecha: "asc" },
+  ],
+  include: {
+    trabajador: {
+      select: {
+        id_trabajador: true,
+        primer_nombre_trabajador: true,
+        segundo_nombre_trabajador: true,
+        apellido_p_trabajador: true,
+        apellido_m_trabajador: true,
+        estado_trabajador: true,
+        especialidad: {
+          select: { nombre_especialidad: true },
+        },
+      },
+    },
+  },
+});
+
+const toInputDate = (date: Date) => {
+  const tzOffset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - tzOffset).toISOString().split("T")[0];
+};
+
+const defaultStart = toInputDate(today);
+const defaultEnd = toInputDate(twoWeeksAhead);
+
+const daysOfWeek = [
+  { value: 1, label: "Lunes" },
+  { value: 2, label: "Martes" },
+  { value: 3, label: "Miercoles" },
+  { value: 4, label: "Jueves" },
+  { value: 5, label: "Viernes" },
+  { value: 6, label: "Sabado" },
+];
+
+type WorkerLike = {
+  primer_nombre_trabajador: string;
+  segundo_nombre_trabajador: string | null;
+  apellido_p_trabajador: string;
+  apellido_m_trabajador: string;
+};
+
+const formatWorkerName = (worker: WorkerLike) =>
+  `${worker.primer_nombre_trabajador}${
+    worker.segundo_nombre_trabajador
+      ? ` ${worker.segundo_nombre_trabajador}`
+      : ""
+  } ${worker.apellido_p_trabajador} ${worker.apellido_m_trabajador}`.trim();
+
+const formatDateDisplay = (date: Date) =>
+  date.toLocaleDateString("es-CL", {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+
+const formatTimeDisplay = (date: Date) =>
+  date.toLocaleTimeString("es-CL", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+type AvailabilitySlot = (typeof disponibilidades)[number];
+
+const availabilityByWorker = disponibilidades.reduce<
+  Record<
+    number,
+    {
+      worker: AvailabilitySlot["trabajador"];
+      slots: AvailabilitySlot[];
+    }
+  >
+>((acc, slot) => {
+  const key = slot.id_trabajador;
+  if (!acc[key]) {
+    acc[key] = { worker: slot.trabajador, slots: [] as AvailabilitySlot[] };
+  }
+  acc[key].slots.push(slot);
+  return acc;
+}, {});
+
+const groupSlotsByDate = (slots: AvailabilitySlot[]) => {
+  const map = new Map<
+    string,
+    { id: number; time: Date; trabajadorId: number }[]
+  >();
+  slots.forEach((slot) => {
+    const key = slot.fecha.toISOString().split("T")[0];
+    const items = map.get(key) ?? [];
+    items.push({
+      id: slot.id_disponibilidad,
+      time: new Date(slot.fecha),
+      trabajadorId: slot.id_trabajador,
+    });
+    map.set(key, items);
+  });
+  return Array.from(map.entries());
+};
+---
+
+<Layout title="Agenda del equipo">
+  <section class="bg-gradient-to-b from-[#200934] via-[#2d1250] to-[#200934] py-12">
+    <div class="mx-auto flex max-w-6xl flex-col gap-10 px-4 sm:px-6">
+      <header class="text-white">
+        <p class="text-sm uppercase tracking-[0.35em] text-white/60">Agenda</p>
+        <h1 class="mt-3 text-3xl font-bold sm:text-4xl">Asignar dias de trabajo</h1>
+        <p class="mt-2 max-w-2xl text-white/80">
+          Define la disponibilidad del personal en bloques de 30 minutos: de lunes a viernes entre las 08:00 y las 20:00 hrs, y los sabados entre las 08:00 y las 13:00 hrs.
+        </p>
+      </header>
+
+      <section class="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <article class="rounded-3xl bg-white p-6 shadow-xl">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-xl font-semibold text-[#200934]">Crear disponibilidad</h2>
+              <p class="mt-1 text-sm text-[#200934]/70">
+                Selecciona uno o varios dias (lunes a sabado). Los domingos no estan disponibles.
+              </p>
+            </div>
+          </div>
+
+          <form id="availability-form" class="mt-5 space-y-5">
+            <div>
+              <label for="workerId" class="mb-2 block text-sm font-semibold text-[#200934]">Trabajador</label>
+              <select
+                id="workerId"
+                name="workerId"
+                required
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-sm text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+              >
+                <option value="" disabled selected>Selecciona un trabajador</option>
+                {trabajadores.map((trabajador) => (
+                  <option value={trabajador.id_trabajador}>
+                    {formatWorkerName(trabajador)} · {trabajador.especialidad?.nombre_especialidad ?? "Sin especialidad"} · {trabajador.estado_trabajador}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label for="startDate" class="mb-2 block text-sm font-semibold text-[#200934]">Fecha inicial</label>
+                <input
+                  id="startDate"
+                  name="startDate"
+                  type="date"
+                  required
+                  value={defaultStart}
+                  class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-sm text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+                />
+              </div>
+              <div>
+                <label for="endDate" class="mb-2 block text-sm font-semibold text-[#200934]">Fecha final</label>
+                <input
+                  id="endDate"
+                  name="endDate"
+                  type="date"
+                  required
+                  value={defaultEnd}
+                  class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-sm text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+                />
+              </div>
+            </div>
+
+            <fieldset class="rounded-2xl border border-dashed border-[#200934]/20 p-4">
+              <legend class="px-2 text-sm font-semibold uppercase tracking-[0.3em] text-[#200934]/60">Dias de la semana</legend>
+              <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                {daysOfWeek.map((day) => (
+                  <label class="flex items-center gap-3 text-sm font-semibold text-[#200934]">
+                    <input
+                      type="checkbox"
+                      name="daysOfWeek"
+                      value={day.value}
+                      checked
+                      class="h-4 w-4 rounded border-[#200934]/30 text-[#321355] focus:ring-[#321355]"
+                    />
+                    {day.label}
+                  </label>
+                ))}
+              </div>
+              <p class="mt-3 text-xs text-[#200934]/70">
+                Lunes a viernes generan bloques de 08:00 a 20:00 hrs; el sabado de 08:00 a 13:00 hrs.
+              </p>
+            </fieldset>
+
+            <div class="space-y-3">
+              <button
+                id="availability-submit"
+                type="submit"
+                class="w-full rounded-2xl bg-[#321355] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#200934] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355]"
+              >
+                Guardar disponibilidad
+              </button>
+              <p id="availability-status" class="min-h-[1.25rem] text-sm font-medium text-[#200934]" aria-live="polite"></p>
+            </div>
+          </form>
+        </article>
+
+        <article class="rounded-3xl bg-white p-6 shadow-xl">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-xl font-semibold text-[#200934]">Resumen proximo</h2>
+              <p class="mt-1 text-sm text-[#200934]/70">
+                {disponibilidades.length > 0
+                  ? "Los proximos 14 dias de disponibilidad para todo el equipo."
+                  : "Aun no hay disponibilidad asignada."}
+              </p>
+            </div>
+            <span class="rounded-full bg-[#f4efff] px-4 py-1 text-sm font-semibold text-[#200934]">
+              {disponibilidades.length} bloques
+            </span>
+          </div>
+
+          {Object.keys(availabilityByWorker).length > 0 ? (
+            <>
+              <p
+                id="availability-list-status"
+                class="mt-4 min-h-[1.25rem] text-sm font-medium text-[#200934]"
+                aria-live="polite"
+              ></p>
+              <div id="availability-summary" class="mt-3 space-y-5">
+                {Object.values(availabilityByWorker).map(({ worker, slots }) => (
+                  <details class="rounded-2xl border border-[#200934]/15 p-4" open>
+                    <summary class="flex flex-wrap items-center justify-between gap-2 cursor-pointer">
+                      <div>
+                        <p class="text-sm uppercase tracking-[0.35em] text-[#200934]/60">
+                          {worker.especialidad?.nombre_especialidad ?? "Sin especialidad"}
+                        </p>
+                        <p class="text-base font-semibold text-[#200934]">{formatWorkerName(worker)}</p>
+                      </div>
+                      <span class="rounded-full bg-[#200934]/5 px-3 py-1 text-xs font-semibold text-[#200934]">
+                        {slots.length} bloques
+                      </span>
+                    </summary>
+                    <ul class="mt-3 space-y-2 text-sm text-[#200934]/80">
+                      {groupSlotsByDate(slots).map(([dateKey, daySlots]) => (
+                        <li
+                          class="rounded-xl bg-[#f7f4ff] px-3 py-2"
+                          data-availability-day
+                          data-worker-id={daySlots[0]?.trabajadorId ?? worker.id_trabajador}
+                          data-day-date={dateKey}
+                        >
+                          <div class="flex flex-wrap items-center justify-between gap-2">
+                            <p class="text-xs font-semibold uppercase tracking-[0.35em] text-[#200934]/60">
+                              {formatDateDisplay(new Date(`${dateKey}T00:00:00`))}
+                            </p>
+                            <button
+                              type="button"
+                              class="text-xs font-semibold text-rose-600 hover:text-rose-700 underline decoration-dotted"
+                              data-delete-day
+                            >
+                              Eliminar dia
+                            </button>
+                          </div>
+                          <p class="mt-2 flex flex-wrap gap-2 text-sm text-[#200934]">
+                            {daySlots.map((slot) => (
+                              <span class="flex items-center gap-2 rounded-lg bg-white px-2 py-1 shadow" data-slot-chip>
+                                <span>{formatTimeDisplay(slot.time)}</span>
+                                <button
+                                  type="button"
+                                  class="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                                  title="Eliminar bloque"
+                                  data-delete-slot={slot.id}
+                                  data-worker-id={slot.trabajadorId}
+                                >
+                                  x
+                                </button>
+                              </span>
+                            ))}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div class="mt-6 rounded-2xl border border-dashed border-[#200934]/20 bg-[#faf7ff] px-4 py-6 text-center text-sm text-[#200934]/70">
+              Aun no hay horarios generados para las proximas dos semanas.
+            </div>
+          )}
+        </article>
+      </section>
+    </div>
+  </section>
+</Layout>
+
+<script type="module">
+  const form = document.querySelector('#availability-form');
+  const statusField = document.querySelector('#availability-status');
+  const submitButton = document.querySelector('#availability-submit');
+  const availabilitySummary = document.querySelector('#availability-summary');
+  const availabilityListStatus = document.querySelector('#availability-list-status');
+
+  const setStatus = (message, isError = false) => {
+    if (!statusField) return;
+    statusField.textContent = message ?? '';
+    statusField.classList.toggle('text-rose-600', Boolean(isError));
+    statusField.classList.toggle('text-emerald-600', !isError);
+  };
+
+  const collectFormPayload = (formElement) => {
+    const formData = new FormData(formElement);
+    const days = formData.getAll('daysOfWeek').map((value) => Number(value));
+    return {
+      trabajadorId: formData.get('workerId'),
+      startDate: formData.get('startDate'),
+      endDate: formData.get('endDate'),
+      daysOfWeek: days,
+    };
+  };
+
+  const setAvailabilityStatus = (message, isError = false) => {
+    if (!availabilityListStatus) return;
+    availabilityListStatus.textContent = message ?? '';
+    availabilityListStatus.classList.toggle('text-rose-600', Boolean(isError));
+    availabilityListStatus.classList.toggle('text-emerald-600', !isError);
+  };
+
+  if (form && statusField && submitButton) {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      setStatus('');
+
+      const payload = collectFormPayload(form);
+
+      submitButton.disabled = true;
+      const originalText = submitButton.textContent;
+      submitButton.textContent = 'Guardando...';
+
+      try {
+        const response = await fetch('/api/admin/disponibilidades', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          setStatus(data.error ?? 'No pudimos guardar la disponibilidad.', true);
+          return;
+        }
+
+        setStatus(data.message ?? 'Disponibilidad creada.');
+        form.reset();
+        setTimeout(() => window.location.reload(), 1200);
+      } catch (error) {
+        console.error(error);
+        setStatus('Error de conexion. Intenta nuevamente.', true);
+      } finally {
+        submitButton.textContent = originalText;
+        submitButton.disabled = false;
+      }
+    });
+  }
+
+  const deleteSlots = async (payload, successMessage) => {
+    setAvailabilityStatus('Actualizando agenda...');
+
+    try {
+      const response = await fetch('/api/admin/disponibilidades', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setAvailabilityStatus(data.error ?? 'No pudimos eliminar los horarios.', true);
+        return;
+      }
+
+      setAvailabilityStatus(successMessage ?? data.message ?? 'Horarios eliminados.');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error) {
+      console.error(error);
+      setAvailabilityStatus('Error de conexion al eliminar los horarios.', true);
+    }
+  };
+
+  availabilitySummary?.addEventListener('click', async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const slotButton = target.closest('[data-delete-slot]');
+    if (slotButton instanceof HTMLElement) {
+      const slotId = Number(slotButton.dataset.deleteSlot ?? '0');
+      if (!Number.isInteger(slotId) || slotId <= 0) {
+        return;
+      }
+      const workerId = Number(slotButton.dataset.workerId ?? '0');
+
+      if (!window.confirm('Deseas eliminar este bloque de tiempo?')) {
+        return;
+      }
+
+      await deleteSlots(
+        {
+          mode: 'slot',
+          slotIds: [slotId],
+          ...(workerId > 0 ? { trabajadorId: workerId } : {}),
+        },
+        'Bloque eliminado.'
+      );
+      return;
+    }
+
+    const dayButton = target.closest('[data-delete-day]');
+    if (dayButton instanceof HTMLElement) {
+      const parent = dayButton.closest('[data-availability-day]');
+      if (!parent) {
+        return;
+      }
+
+      const workerId = Number(parent.getAttribute('data-worker-id') ?? '0');
+      const dayDate = parent.getAttribute('data-day-date');
+
+      if (!Number.isInteger(workerId) || workerId <= 0 || !dayDate) {
+        return;
+      }
+
+      if (!window.confirm('Deseas eliminar todos los bloques de este dia?')) {
+        return;
+      }
+
+      await deleteSlots(
+        {
+          mode: 'day',
+          trabajadorId: workerId,
+          date: dayDate,
+        },
+        'Dia eliminado.'
+      );
+    }
+  });
+</script>

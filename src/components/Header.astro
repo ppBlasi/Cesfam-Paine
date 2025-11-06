@@ -1,0 +1,218 @@
+---
+import HeaderButton from "./HeaderButton.astro";
+
+const user = Astro.locals.user as { id: number; rut: string; isAdmin: boolean } | null;
+
+const menuSections = [
+  { kind: "link", href: "/", label: "Inicio" },
+  { kind: "link", href: "/noticia", label: "Noticias" },
+  {
+    kind: "dropdown",
+    id: "institucion",
+    label: "Institucion",
+    items: [
+      { href: "/about", label: "Quienes Somos" },
+      { href: "/misionvision", label: "Mision y Vision" },
+      { href: "/horario", label: "Horarios" },
+    ],
+  },
+  {
+    kind: "dropdown",
+    id: "programas",
+    label: "Programas",
+    items: [
+      { href: "/programas/alimentacioncomp", label: "Alimentacion Complementaria" },
+      { href: "/programas/odontologia", label: "Odontologicos" },
+      { href: "/programas/rehabilitacion", label: "Rehabilitacion" },
+      { href: "/programas/vidasana", label: "Vida Sana" },
+    ],
+  },
+  {
+    kind: "dropdown",
+    id: "servicios",
+    label: "Servicios",
+    items: [
+      { href: "/servicios/farmacia", label: "Farmacia" },
+      { href: "/servicios/oirs", label: "OIRS" },
+      { href: "/servicios/entregalya", label: "Entrega de leche y Alimentacion" },
+      { href: "/servicios/curacionytratamientos", label: "Curaciones y Tratamientos" },
+      { href: "/servicios/tomamuestras", label: "Toma de Muestras" },
+      { href: "/servicios/vacunatorio", label: "Vacunatorio" },
+    ],
+  },
+  { kind: "link", href: "/atencion/opciones", label: "Necesitas atencion?" },
+];
+
+const primaryCta = { href: "/reserva/reserva", label: "Reserva tu Hora" };
+
+const accountLinks = user
+  ? [
+      { kind: "link" as const, href: "/perfil", label: "Ver perfil" },
+      ...(user.isAdmin ? [{ kind: "link" as const, href: "/admin", label: "Panel administrativo" }] : []),
+      { kind: "action" as const, label: "Cerrar sesion" },
+    ]
+  : [];
+
+const mobileActions = user
+  ? [
+      { kind: "link" as const, href: primaryCta.href, label: primaryCta.label },
+      ...accountLinks,
+    ]
+  : [
+      { kind: "link" as const, href: primaryCta.href, label: primaryCta.label },
+      { kind: "link" as const, href: "/login", label: "Iniciar sesion" },
+    ];
+---
+
+<header class="w-full shadow-2xl overflow-hidden relative">
+  <div class="w-full relative">
+    <img src="/header2.png" alt="Foto del hospital" class="object-cover h-[11rem] w-full title" />
+    <h4 class="absolute inset-0 flex items-center justify-center text-lg md:text-3xl font-bold text-white bg-black bg-opacity-40 px-2 text-center">
+      CESFAM DR MIGUEL SOLAR DE PAINE
+    </h4>
+  </div>
+
+  <div class="relative bg-[#200934] text-white">
+    <div class="flex justify-between px-6 md:px-10 py-3">
+      <a href="/" class="shrink-0">
+        <img src="/logo.png" alt="Logo" class="h-12" />
+      </a>
+
+      <nav class="hidden md:flex flex-1 justify-start gap-6 font-semibold">
+        {
+          menuSections.map((section) =>
+            section.kind === "link" ? (
+              <HeaderButton href={section.href}>{section.label}</HeaderButton>
+            ) : (
+              <el-dropdown class="relative pt-1">
+                <button class="inline-flex items-center gap-x-1.5 rounded-md bg-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 focus:outline-none">
+                  {section.label}
+                  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="-mr-1 size-5 text-gray-400">
+                    <path d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
+                  </svg>
+                </button>
+                <el-menu
+                  anchor="bottom start"
+                  class="absolute mt-2 ml-1 w-56 origin-left rounded-md bg-gray-800 shadow-lg transition transition-discrete [--anchor-gap:--spacing(2)] data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in z-50">
+                  <div class="py-1">
+                    {section.items?.map((item) => (
+                      <a href={item.href} class="block px-4 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white focus:bg-white/5 focus:text-white">
+                        {item.label}
+                      </a>
+                    ))}
+                  </div>
+                </el-menu>
+              </el-dropdown>
+            )
+          )
+        }
+      </nav>
+
+      <nav class="hidden md:flex items-center gap-3 font-semibold">
+        <HeaderButton href={primaryCta.href}>{primaryCta.label}</HeaderButton>
+        {
+          user ? (
+            <el-dropdown class="relative">
+              <button class="inline-flex items-center gap-x-1.5 rounded-md bg-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-white/20 focus:outline-none">
+                {user.isAdmin ? "Admin" : "Mi cuenta"}
+                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="-mr-1 size-5 text-gray-400">
+                  <path d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
+                </svg>
+              </button>
+              <el-menu
+                anchor="bottom end"
+                class="absolute mt-2 w-56 origin-right rounded-md bg-gray-800 shadow-lg transition transition-discrete [--anchor-gap:--spacing(2)] data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in z-50">
+                <div class="py-1">
+                  {accountLinks.map((item) =>
+                    item.kind === "link" ? (
+                      <a href={item.href} class="block px-4 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white focus:bg-white/5 focus:text-white">
+                        {item.label}
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        data-logout
+                        class="block w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white focus:bg-white/5 focus:text-white">
+                        {item.label}
+                      </button>
+                    )
+                  )}
+                </div>
+              </el-menu>
+            </el-dropdown>
+          ) : (
+            <HeaderButton href="/login">Iniciar sesion</HeaderButton>
+          )
+        }
+      </nav>
+
+      <label for="mobile-toggle" class="md:hidden cursor-pointer p-2">
+        <img src="/menu.png" alt="Abrir menu" class="h-7 w-7" />
+      </label>
+    </div>
+
+    <input id="mobile-toggle" type="checkbox" class="peer hidden" />
+    <div class="md:hidden bg-[#200934] max-h-0 overflow-hidden transition-all duration-300 peer-checked:max-h-[45rem]">
+      <nav class="flex flex-col gap-2 px-4 pb-6 font-semibold">
+        {
+          menuSections.map((section) =>
+            section.kind === "link" ? (
+              <div class="border-b">
+                <HeaderButton href={section.href}>{section.label}</HeaderButton>
+              </div>
+            ) : (
+              <div class="border-b">
+                <label for={`mobile-${section.id}-toggle`} class="block py-2 cursor-pointer">
+                  {section.label}
+                </label>
+                <input id={`mobile-${section.id}-toggle`} type="checkbox" class="peer hidden" />
+                <div class="flex flex-col pl-4 max-h-0 overflow-hidden transition-all duration-300 peer-checked:max-h-64">
+                  {section.items?.map((item) => (
+                    <a href={item.href} class="block py-2">{item.label}</a>
+                  ))}
+                </div>
+              </div>
+            )
+          )
+        }
+
+        <div class="mt-4 border-t pt-4 flex flex-col gap-3">
+          {mobileActions.map((item) =>
+            item.kind === "link" ? (
+              <HeaderButton href={item.href}>{item.label}</HeaderButton>
+            ) : (
+              <button
+                type="button"
+                data-logout
+                class="flex-row justify-center cursor-pointer bg-white/10 hover:bg-white/20 text-white focus:ring-4 focus:outline-none focus:ring-white/40 font-medium rounded-lg px-5 py-2.5 text-center inline-flex items-center gap-x-2 transition-all duration-200 ease-in-out">
+                {item.label}
+              </button>
+            )
+          )}
+        </div>
+      </nav>
+    </div>
+  </div>
+
+  <script type="module">
+    const logoutButtons = document.querySelectorAll("[data-logout]");
+    logoutButtons.forEach((button) => {
+      button.addEventListener("click", async (event) => {
+        event.preventDefault();
+
+        try {
+          const response = await fetch("/api/logout", { method: "POST" });
+          if (!response.ok && response.status !== 204) {
+            throw new Error("No se pudo cerrar la sesion.");
+          }
+        } catch (error) {
+          console.error(error);
+        } finally {
+          window.location.href = "/";
+        }
+      });
+    });
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1" type="module"></script>
+</header>

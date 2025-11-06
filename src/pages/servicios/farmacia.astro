@@ -1,0 +1,83 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+<Layout>
+  <main id="content" class="site-main hentry py-10">
+    <div class="page-header text-center my-8">
+      <h1 class="text-3xl font-bold text-gray-800 uppercase tracking-wide">Farmacia</h1>
+      <div class="w-20 mx-auto mt-2 border-b-4 border-blue-500"></div>
+    </div>
+
+    <!-- Información general -->
+    <section class="max-w-5xl mx-auto px-4 md:px-8 space-y-4 text-gray-700">
+      <p class="leading-relaxed">
+        La Unidad de Farmacia del CESFAM Dr. Miguel Solar Parada tiene como propósito entregar una atención oportuna
+        y de calidad a todos los usuarios del establecimiento.
+      </p>
+
+      <h3 class="text-xl font-semibold mt-6 text-gray-800">Horarios de atención</h3>
+      <ul class="list-disc list-inside space-y-1">
+        <li><strong>Lunes a Viernes:</strong> 08:00 a 20:00 horas</li>
+        <li><strong>Sábado:</strong> 08:00 a 13:00 horas</li>
+        <li><strong>Domingos y Festivos:</strong> Cerrado</li>
+      </ul>
+
+      <h3 class="text-xl font-semibold mt-6 text-gray-800">Consideraciones para retirar medicamentos</h3>
+      <ul class="list-disc list-inside space-y-1">
+        <li>Traer siempre el carnet de identidad del paciente.</li>
+        <li>Pacientes crónicos deben presentar la libreta de registro de medicamentos y respetar las fechas indicadas.</li>
+        <li>Una libreta por paciente al momento del retiro.</li>
+        <li>Los medicamentos recetados por morbilidad deben retirarse el mismo día de la atención.</li>
+      </ul>
+    </section>
+
+    <div class="my-10 border-t border-gray-300"></div>
+
+    <!-- Fondo de Farmacia (FOFAR) -->
+    <section class="max-w-5xl mx-auto px-4 md:px-8 space-y-6">
+      <h2 class="text-2xl font-bold text-center text-gray-800">Fondo de Farmacia (FOFAR)</h2>
+
+      <details class="border rounded-lg shadow-sm">
+        <summary class="cursor-pointer bg-blue-50 px-4 py-3 font-semibold text-gray-800 hover:bg-blue-100 transition">
+          ¿Qué es el Fondo de Farmacia - FOFAR?
+        </summary>
+        <div class="p-4 text-gray-700">
+          <p>
+            El Fondo de Farmacia (FOFAR) tiene como objetivo entregar de forma oportuna y gratuita los medicamentos necesarios
+            para el tratamiento de hipertensión, diabetes, colesterol y triglicéridos altos.
+          </p>
+        </div>
+      </details>
+
+      <details class="border rounded-lg shadow-sm">
+        <summary class="cursor-pointer bg-blue-50 px-4 py-3 font-semibold text-gray-800 hover:bg-blue-100 transition">
+          ¿Qué medicamentos son financiados?
+        </summary>
+        <div class="p-4 text-gray-700">
+          <p>El Fondo de Farmacia considera la entrega de medicamentos e insumos médicos para las siguientes patologías:</p>
+          <ul class="list-disc list-inside space-y-1 mt-2">
+            <li>Diabetes Mellitus tipo 2</li>
+            <li>Hipertensión arterial</li>
+            <li>Dislipidemia (colesterol alto)</li>
+            <li>Hipotiroidismo</li>
+            <li>Epilepsia</li>
+            <li>Artrosis</li>
+            <li>Insumos para el manejo avanzado de heridas por pie diabético</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="border rounded-lg shadow-sm">
+        <summary class="cursor-pointer bg-blue-50 px-4 py-3 font-semibold text-gray-800 hover:bg-blue-100 transition">
+          ¿Quiénes pueden acceder?
+        </summary>
+        <div class="p-4 text-gray-700">
+          <p>
+            El FOFAR beneficia a pacientes mayores de 15 años que se atienden en el sistema público y estén inscritos
+            en el CESFAM Dr. Miguel Solar Parada.
+          </p>
+        </div>
+      </details>
+    </section>
+  </main>
+</Layout>
