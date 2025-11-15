@@ -35,7 +35,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const password = body.password ?? "";
 
   if (!rut || !password) {
-    return jsonResponse(400, { error: "Debes ingresar tu RUT y contrasena." });
+    return jsonResponse(400, { error: "Debes ingresar tu RUT y contraseña." });
   }
 
   const normalizedRut = normalizeRut(rut);
@@ -44,13 +44,13 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const user = await prisma.usuario.findUnique({ where: { rut: normalizedRut } });
 
     if (!user) {
-      return jsonResponse(401, { error: "RUT o contrasena incorrectos." });
+      return jsonResponse(401, { error: "RUT o contraseña incorrectos." });
     }
 
     const isValid = await bcrypt.compare(password, user.password);
 
     if (!isValid) {
-      return jsonResponse(401, { error: "RUT o contrasena incorrectos." });
+      return jsonResponse(401, { error: "RUT o contraseña incorrectos." });
     }
 
     const workerRecord = await getWorkerByRut(normalizedRut);

@@ -1,7 +1,9 @@
 ---
 import HeaderButton from "./HeaderButton.astro";
 
-const user = Astro.locals.user as { id: number; rut: string; isAdmin: boolean } | null;
+const user = Astro.locals.user as
+  | { id: number; rut: string; isAdmin: boolean; isWorker: boolean }
+  | null;
 
 const menuSections = [
   { kind: "link", href: "/", label: "Inicio" },
@@ -47,7 +49,11 @@ const primaryCta = { href: "/reserva/reserva", label: "Reserva tu Hora" };
 
 const accountLinks = user
   ? [
-      { kind: "link" as const, href: "/perfil", label: "Ver perfil" },
+      {
+        kind: "link" as const,
+        href: user.isWorker ? "/trabajador" : "/perfil",
+        label: user.isWorker ? "Panel del trabajador" : "Ver perfil",
+      },
       ...(user.isAdmin ? [{ kind: "link" as const, href: "/admin", label: "Panel administrativo" }] : []),
       { kind: "action" as const, label: "Cerrar sesion" },
     ]
