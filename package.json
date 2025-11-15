@@ -23,7 +23,7 @@
     "@astrojs/vercel": "^8.2.7",
     "@astrojs/vue": "^5.1.1",
     "@popperjs/core": "^2.11.8",
-    "@prisma/client": "6.15.0",
+    "@prisma/client": "6.19.0",
     "@supabase/supabase-js": "^2.56.1",
     "@tailwindcss/vite": "^4.1.12",
     "astro": "^5.13.5",

@@ -1,0 +1,223 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { prisma } from "../../lib/prisma";
+
+const user = Astro.locals.user;
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+if (!user.isWorker && !user.isAdmin) {
+  return Astro.redirect("/");
+}
+
+const worker = await prisma.trabajador.findFirst({
+  where: { rut_trabajador: user.rut },
+  include: {
+    especialidad: {
+      select: {
+        nombre_especialidad: true,
+        id_especialidad: true,
+      },
+    },
+  },
+});
+
+if (!worker) {
+  return Astro.redirect(user.isAdmin ? "/admin" : "/perfil");
+}
+
+const specialtyName = worker.especialidad?.nombre_especialidad ?? "Sin especialidad";
+const isDoctor = specialtyName === "Medicina General";
+
+if (!isDoctor && !user.isAdmin) {
+  return Astro.redirect("/trabajador");
+}
+
+const startOfToday = new Date();
+startOfToday.setHours(0, 0, 0, 0);
+
+const upcomingConsultations = await prisma.disponibilidadTrabajador.findMany({
+  where: {
+    id_trabajador: worker.id_trabajador,
+    fecha: {
+      gte: startOfToday,
+    },
+    estado: {
+      in: ["reservado", "confirmado"],
+    },
+  },
+  include: {
+    paciente: {
+      select: {
+        primer_nombre_paciente: true,
+        segundo_nombre_paciente: true,
+        apellido_p_paciente: true,
+        apellido_m_paciente: true,
+        correo_paciente: true,
+        celular_paciente: true,
+      },
+    },
+  },
+  orderBy: { fecha: "asc" },
+  take: 30,
+});
+
+const formatDateTime = (value: Date) =>
+  value.toLocaleString("es-CL", {
+    dateStyle: "full",
+    timeStyle: "short",
+  });
+
+const formatDate = (value: Date) =>
+  value.toLocaleDateString("es-CL", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+const groupedConsultations = upcomingConsultations.reduce(
+  (acc, consultation) => {
+    const key = consultation.fecha.toISOString().split("T")[0];
+    if (!acc.has(key)) {
+      acc.set(key, {
+        date: consultation.fecha,
+        items: [],
+      });
+    }
+    acc.get(key)!.items.push(consultation);
+    return acc;
+  },
+  new Map<
+    string,
+    {
+      date: Date;
+      items: typeof upcomingConsultations;
+    }
+  >()
+);
+
+const groupedArray = Array.from(groupedConsultations.entries())
+  .map(([key, value]) => ({
+    key,
+    date: value.date,
+    items: value.items,
+  }))
+  .sort((a, b) => a.key.localeCompare(b.key));
+
+const workerFullName = [
+  worker.primer_nombre_trabajador,
+  worker.segundo_nombre_trabajador,
+  worker.apellido_p_trabajador,
+  worker.apellido_m_trabajador,
+]
+  .filter(Boolean)
+  .join(" ");
+---
+
+<Layout title="Consultas programadas">
+  <section class="bg-gradient-to-b from-[#f4f1fb] to-[#e9e2ff] py-12">
+    <div class="mx-auto flex max-w-5xl flex-col gap-8 px-4 sm:px-6">
+      <header class="rounded-3xl bg-[#200934] px-6 py-8 text-white shadow-xl">
+        <p class="text-sm uppercase tracking-[0.35em] text-white/70">Medicina general</p>
+        <h1 class="mt-3 text-3xl font-bold">Consultas agendadas</h1>
+        <p class="mt-2 text-white/80">
+          Profesional: <span class="font-semibold text-white">{workerFullName}</span>
+        </p>
+        <p class="mt-1 text-white/70">
+          Especialidad: <span class="font-semibold text-white">{specialtyName}</span>
+        </p>
+        <p class="mt-4 text-sm text-white/60">
+          Esta vista solo muestra las horas reservadas o confirmadas a partir de hoy. Recuerda actualizar el estado de cada bloque una vez finalizada la atencion.
+        </p>
+        <a
+          href="/trabajador"
+          class="mt-6 inline-flex items-center justify-center rounded-2xl bg-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/25"
+        >
+          Volver al panel principal
+        </a>
+      </header>
+
+      {groupedArray.length > 0 ? (
+        <div class="space-y-8">
+          <div class="flex flex-wrap items-center gap-3 text-sm text-[#200934]/80">
+            <span class="font-semibold text-[#200934]">Filtrar por fecha:</span>
+            {groupedArray.map((group) => (
+              <a
+                href={`#day-${group.key}`}
+                class="rounded-full border border-[#200934]/20 px-3 py-1 transition hover:border-[#200934]/60 hover:text-[#200934]"
+              >
+                {group.date.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })}
+              </a>
+            ))}
+          </div>
+
+          {groupedArray.map((group) => (
+            <section id={`day-${group.key}`} class="space-y-4">
+              <div class="flex items-center justify-between rounded-3xl bg-[#200934] px-4 py-3 text-white">
+                <div>
+                  <p class="text-sm uppercase tracking-[0.35em] text-white/70">Agenda</p>
+                  <p class="text-2xl font-semibold">{formatDate(group.date)}</p>
+                </div>
+                <span class="rounded-full bg-white/15 px-3 py-1 text-sm font-semibold">
+                  {group.items.length} consulta{group.items.length === 1 ? "" : "s"}
+                </span>
+              </div>
+
+              <ul class="space-y-4">
+                {group.items.map((consultation) => {
+                  const patient = consultation.paciente;
+                  const patientName = patient
+                    ? [
+                        patient.primer_nombre_paciente,
+                        patient.segundo_nombre_paciente,
+                        patient.apellido_p_paciente,
+                        patient.apellido_m_paciente,
+                      ]
+                        .filter(Boolean)
+                        .join(" ")
+                    : "Paciente pendiente";
+                  const statusLabel =
+                    consultation.estado === "confirmado" ? "Confirmada" : "Reservada";
+                  return (
+                    <li class="rounded-3xl border border-[#200934]/10 bg-white p-5 shadow-sm">
+                      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div>
+                          <p class="text-lg font-semibold text-[#200934]">{patientName}</p>
+                          <p class="text-sm text-[#200934]/70">{consultation.fecha.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</p>
+                          <p class="text-xs font-semibold text-emerald-600">{statusLabel}</p>
+                          {consultation.nota ? (
+                            <p class="mt-2 text-sm text-[#200934]/80">
+                              Nota del paciente: <span class="font-semibold text-[#200934]">{consultation.nota}</span>
+                            </p>
+                          ) : null}
+                        </div>
+                        {patient ? (
+                          <div class="rounded-2xl bg-[#f4f1fb] p-4 text-sm text-[#200934]">
+                            <p class="font-semibold">Contacto paciente</p>
+                            <p class="text-[#200934]/80">Correo: {patient.correo_paciente ?? "Sin correo"}</p>
+                            <p class="text-[#200934]/80">Telefono: {patient.celular_paciente ?? "Sin telefono"}</p>
+                          </div>
+                        ) : (
+                          <p class="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
+                            Esta reserva aun no tiene paciente asignado. Verifica con admision.
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <p class="rounded-3xl border border-dashed border-[#200934]/20 bg-white p-6 text-sm text-[#200934]/70">
+          No tienes reservas a partir de hoy. Una vez que los pacientes agenden horas en tu agenda, apareceran en este listado.
+        </p>
+      )}
+    </div>
+  </section>
+</Layout>

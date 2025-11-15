@@ -197,16 +197,30 @@ onMounted(fetchAvailability);
 
 const availableDateKeys = computed(() => new Set(days.value.map((day) => day.date)));
 
-const disabledDates = computed(() => [
-  {
-    predicate: (date) => {
-      const copy = new Date(date);
-      copy.setHours(0, 0, 0, 0);
-      const key = copy.toISOString().split("T")[0];
-      return !availableDateKeys.value.has(key);
-    },
-  },
-]);
+const disabledDates = computed(() => {
+  if (!minDate.value || !maxDate.value) {
+    return [];
+  }
+
+  const disabled = [];
+  const start = new Date(minDate.value);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(maxDate.value);
+  end.setHours(0, 0, 0, 0);
+
+  for (
+    let cursor = new Date(start);
+    cursor.getTime() <= end.getTime();
+    cursor.setDate(cursor.getDate() + 1)
+  ) {
+    const key = cursor.toISOString().split("T")[0];
+    if (!availableDateKeys.value.has(key)) {
+      disabled.push(new Date(cursor));
+    }
+  }
+
+  return disabled;
+});
 
 const selectedDateKey = computed(() => {
   if (!selectedDate.value) return null;

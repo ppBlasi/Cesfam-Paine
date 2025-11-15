@@ -99,6 +99,8 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     toDate = maxRangeEnd;
   }
 
+  const now = new Date();
+
   const slots = await prisma.disponibilidadTrabajador.findMany({
     where: {
       estado: "disponible",
@@ -148,6 +150,9 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   >();
 
   for (const slot of slots) {
+    if (slot.fecha < now) {
+      continue;
+    }
     const slotDate = startOfDay(slot.fecha);
     const dateKey = formatDateKey(slotDate);
     const timeKey = formatTime(slot.fecha);

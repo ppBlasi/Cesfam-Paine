@@ -117,6 +117,7 @@ model Paciente {
   reserva                 Reserva?   @relation(fields: [id_reserva], references: [id_reserva])
   urgencia                Urgencia?  @relation(fields: [id_urgencia], references: [id_urgencia])
   disponibilidades        DisponibilidadTrabajador[]
+  ingresos_enfermeria     IngresoEnfermeria[]
 }
 
 model Trabajador {
@@ -208,6 +209,22 @@ model DisponibilidadTrabajador {
   id_paciente       Int?
   paciente          Paciente?    @relation(fields: [id_paciente], references: [id_paciente])
   nota              String?
+  ingreso_enfermeria IngresoEnfermeria?
   @@map("disponibilidad_trabajador")
   @@unique([id_trabajador, fecha], map: "trabajador_fecha_unica")
+}
+
+model IngresoEnfermeria {
+  id_ingreso         Int                      @id @default(autoincrement())
+  id_disponibilidad  Int                      @unique
+  id_paciente        Int
+  altura             Float
+  peso               Float
+  signos_vitales     String
+  created_at         DateTime                 @default(now())
+  updated_at         DateTime                 @updatedAt
+  disponibilidad     DisponibilidadTrabajador @relation(fields: [id_disponibilidad], references: [id_disponibilidad])
+  paciente           Paciente                 @relation(fields: [id_paciente], references: [id_paciente])
+
+  @@map("ingreso_enfermeria")
 }
