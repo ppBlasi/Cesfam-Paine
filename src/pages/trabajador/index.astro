@@ -31,6 +31,7 @@ if (!worker) {
 const specialtyName = worker.especialidad?.nombre_especialidad ?? "Sin especialidad";
 const isNurse = specialtyName === "Enfermeria";
 const isDoctor = specialtyName === "Medicina General";
+const isReception = specialtyName === "Recepcion";
 
 type WorkerOption = {
   title: string;
@@ -199,7 +200,23 @@ const workerFullName = [
           </p>
 
           <ul class="mt-5 space-y-4">
-            {specialtyOptions.map((option) => (
+            {(isReception
+              ? [
+                  {
+                    title: "Busqueda de pacientes",
+                    description: "Consulta reservas ingresando el RUT.",
+                    href: "/trabajador/recepcion",
+                    highlight: "Recepcion",
+                  },
+                  {
+                    title: "Asignar nueva hora",
+                    description: "Valida RUT y agenda desde el calendario centralizado.",
+                    href: "/trabajador/recepcion/asignar",
+                    highlight: "Recepcion",
+                  },
+                ]
+              : specialtyOptions
+            ).map((option) => (
               <li class="rounded-2xl border border-[#200934]/10 p-4">
                 <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <div>

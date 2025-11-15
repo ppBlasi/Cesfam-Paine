@@ -2,7 +2,17 @@
 import HeaderButton from "./HeaderButton.astro";
 
 const user = Astro.locals.user as
-  | { id: number; rut: string; isAdmin: boolean; isWorker: boolean }
+  | {
+      id: number;
+      rut: string;
+      isAdmin: boolean;
+      isWorker: boolean;
+      worker?: {
+        especialidad?: {
+          nombre_especialidad?: string | null;
+        } | null;
+      } | null;
+    }
   | null;
 
 const menuSections = [
@@ -47,6 +57,10 @@ const menuSections = [
 
 const primaryCta = { href: "/reserva/reserva", label: "Reserva tu Hora" };
 
+const isReception =
+  Boolean(user?.worker?.specialtyName) &&
+  user?.worker?.specialtyName === "Recepcion";
+
 const accountLinks = user
   ? [
       {
@@ -54,6 +68,12 @@ const accountLinks = user
         href: user.isWorker ? "/trabajador" : "/perfil",
         label: user.isWorker ? "Panel del trabajador" : "Ver perfil",
       },
+      ...(isReception
+        ? [
+            { kind: "link" as const, href: "/trabajador/recepcion", label: "Busqueda de pacientes" },
+            { kind: "link" as const, href: "/trabajador/recepcion/asignar", label: "Asignar nueva hora" },
+          ]
+        : []),
       ...(user.isAdmin ? [{ kind: "link" as const, href: "/admin", label: "Panel administrativo" }] : []),
       { kind: "action" as const, label: "Cerrar sesion" },
     ]

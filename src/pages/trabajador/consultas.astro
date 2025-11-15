@@ -78,26 +78,17 @@ const formatDate = (value: Date) =>
     day: "numeric",
   });
 
-const groupedConsultations = upcomingConsultations.reduce(
-  (acc, consultation) => {
-    const key = consultation.fecha.toISOString().split("T")[0];
-    if (!acc.has(key)) {
-      acc.set(key, {
-        date: consultation.fecha,
-        items: [],
-      });
-    }
-    acc.get(key)!.items.push(consultation);
-    return acc;
-  },
-  new Map<
-    string,
-    {
-      date: Date;
-      items: typeof upcomingConsultations;
-    }
-  >()
-);
+const groupedConsultations = upcomingConsultations.reduce((acc, consultation) => {
+  const key = consultation.fecha.toISOString().split("T")[0];
+  if (!acc.has(key)) {
+    acc.set(key, {
+      date: consultation.fecha,
+      items: [],
+    });
+  }
+  acc.get(key)?.items.push(consultation);
+  return acc;
+}, new Map());
 
 const groupedArray = Array.from(groupedConsultations.entries())
   .map(([key, value]) => ({
@@ -105,7 +96,11 @@ const groupedArray = Array.from(groupedConsultations.entries())
     date: value.date,
     items: value.items,
   }))
-  .sort((a, b) => a.key.localeCompare(b.key));
+  .sort((a, b) => b.key.localeCompare(a.key))
+  .map((group) => ({
+    ...group,
+    items: group.items.sort((a, b) => b.fecha.getTime() - a.fecha.getTime()),
+  }));
 
 const workerFullName = [
   worker.primer_nombre_trabajador,

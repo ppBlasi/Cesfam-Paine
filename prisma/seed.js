@@ -42,7 +42,14 @@ async function main() {
     await ensureRecord(prisma.servicio, { nombre: servicio.nombre, id_programa: servicio.id_programa }, servicio, 'id_servicio');
   }
 
-  const especialidadesBase = ['Medicina General', 'Pediatria', 'Ginecologia', 'Psiquiatria', 'Enfermeria'];
+  const especialidadesBase = [
+    'Medicina General',
+    'Pediatria',
+    'Ginecologia',
+    'Psiquiatria',
+    'Enfermeria',
+    'Recepcion',
+  ];
   for (const nombre of especialidadesBase) {
     await ensureRecord(
       prisma.especialidad,
@@ -101,10 +108,11 @@ async function main() {
     );
   }
 
-  const [demoPassword, adminPassword, nursePassword] = await Promise.all([
+  const [demoPassword, adminPassword, nursePassword, receptionPassword] = await Promise.all([
     bcrypt.hash('ContrasenaDemo1!', 10),
     bcrypt.hash('AdminDemo1!', 10),
     bcrypt.hash('EnfermeriaDemo1!', 10),
+    bcrypt.hash('RecepcionDemo1!', 10),
   ]);
 
   await Promise.all([
@@ -130,6 +138,14 @@ async function main() {
       create: {
         rut: '55555555-5',
         password: nursePassword,
+      },
+    }),
+    prisma.usuario.upsert({
+      where: { rut: '66666666-6' },
+      update: { password: receptionPassword },
+      create: {
+        rut: '66666666-6',
+        password: receptionPassword,
       },
     }),
   ]);
@@ -179,6 +195,13 @@ async function main() {
     'id_especialidad',
   );
 
+  const recepcionEspecialidad = await ensureRecord(
+    prisma.especialidad,
+    { nombre_especialidad: 'Recepcion' },
+    { nombre_especialidad: 'Recepcion' },
+    'id_especialidad',
+  );
+
   const nurseWorker = await prisma.trabajador.findFirst({
     where: { rut_trabajador: '55555555-5' },
   });
@@ -217,8 +240,46 @@ async function main() {
     });
   }
 
+  const receptionWorker = await prisma.trabajador.findFirst({
+    where: { rut_trabajador: '66666666-6' },
+  });
+
+  if (receptionWorker) {
+    await prisma.trabajador.update({
+      where: { id_trabajador: receptionWorker.id_trabajador },
+      data: {
+        id_especialidad: recepcionEspecialidad.id_especialidad,
+        primer_nombre_trabajador: 'Recepcionista',
+        segundo_nombre_trabajador: 'Demo',
+        apellido_p_trabajador: 'Equipo',
+        apellido_m_trabajador: 'CESFAM',
+        celular_trabajador: '+56900000002',
+        correo_trabajador: 'recepcion@cesfam.cl',
+        direccion_trabajador: 'Modulo Recepcion',
+        estado_trabajador: 'Activo',
+      },
+    });
+  } else {
+    await prisma.trabajador.create({
+      data: {
+        primer_nombre_trabajador: 'Recepcionista',
+        segundo_nombre_trabajador: 'Demo',
+        apellido_p_trabajador: 'Equipo',
+        apellido_m_trabajador: 'CESFAM',
+        rut_trabajador: '66666666-6',
+        celular_trabajador: '+56900000002',
+        correo_trabajador: 'recepcion@cesfam.cl',
+        direccion_trabajador: 'Modulo Recepcion',
+        estado_trabajador: 'Activo',
+        especialidad: {
+          connect: { id_especialidad: recepcionEspecialidad.id_especialidad },
+        },
+      },
+    });
+  }
+
   console.log(
-    'Seed: datos insertados correctamente. Usuarios disponibles: 11111111-1 / ContrasenaDemo1!, 22222222-2 / AdminDemo1!, 55555555-5 / EnfermeriaDemo1!',
+    'Seed: datos insertados correctamente. Usuarios disponibles: 11111111-1 / ContrasenaDemo1!, 22222222-2 / AdminDemo1!, 55555555-5 / EnfermeriaDemo1!, 66666666-6 / RecepcionDemo1!',
   );
 }
 
