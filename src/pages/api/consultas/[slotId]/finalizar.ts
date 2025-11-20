@@ -12,18 +12,28 @@ const jsonResponse = (status: number, payload: unknown) =>
     headers: { "Content-Type": "application/json" },
   });
 
-const ensureConsultTable = () =>
-  prisma.$executeRawUnsafe(`
+const ensureConsultTable = async () => {
+  await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS consulta_medica_slot (
       id_consulta SERIAL PRIMARY KEY,
       id_disponibilidad INTEGER NOT NULL UNIQUE REFERENCES disponibilidad_trabajador(id_disponibilidad),
       id_paciente INTEGER NOT NULL REFERENCES "Paciente"(id_paciente),
       resumen TEXT NOT NULL,
       derivacion TEXT,
+      tratamiento JSONB,
+      orden_examenes TEXT,
       created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS tratamiento JSONB;`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS orden_examenes TEXT;`
+  );
+};
 
 const ensureDoctorSession = async (cookies: APIRoute["context"]["cookies"]) => {
   const token = cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -66,6 +76,8 @@ export const POST: APIRoute = async ({ request, cookies, params }) => {
   const patientId = Number((payload as Record<string, unknown>).patientId);
   const resumen = String((payload as Record<string, unknown>).resumen ?? "").trim();
   const derivacion = String((payload as Record<string, unknown>).derivacion ?? "").trim() || null;
+  const tratamiento = (payload as Record<string, unknown>).tratamientos ?? [];
+  const ordenExamenes = String((payload as Record<string, unknown>).ordenExamenes ?? "").trim() || null;
 
   if (!Number.isInteger(patientId) || patientId <= 0) {
     return jsonResponse(400, { error: "Paciente inválido." });
@@ -87,12 +99,14 @@ export const POST: APIRoute = async ({ request, cookies, params }) => {
   await ensureConsultTable();
 
   await prisma.$executeRaw`
-    INSERT INTO consulta_medica_slot (id_disponibilidad, id_paciente, resumen, derivacion)
-    VALUES (${slotId}, ${patientId}, ${resumen}, ${derivacion})
+    INSERT INTO consulta_medica_slot (id_disponibilidad, id_paciente, resumen, derivacion, tratamiento, orden_examenes)
+    VALUES (${slotId}, ${patientId}, ${resumen}, ${derivacion}, ${JSON.stringify(tratamiento)}, ${ordenExamenes})
     ON CONFLICT (id_disponibilidad)
     DO UPDATE SET
       resumen = EXCLUDED.resumen,
       derivacion = EXCLUDED.derivacion,
+      tratamiento = EXCLUDED.tratamiento,
+      orden_examenes = EXCLUDED.orden_examenes,
       updated_at = CURRENT_TIMESTAMP;
   `;
 

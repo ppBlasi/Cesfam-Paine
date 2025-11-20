@@ -12,18 +12,28 @@ const jsonResponse = (status: number, payload: unknown) =>
     headers: { "Content-Type": "application/json" },
   });
 
-const ensureConsultTable = () =>
-  prisma.$executeRawUnsafe(`
+const ensureConsultTable = async () => {
+  await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS consulta_medica_slot (
       id_consulta SERIAL PRIMARY KEY,
       id_disponibilidad INTEGER NOT NULL UNIQUE REFERENCES disponibilidad_trabajador(id_disponibilidad),
       id_paciente INTEGER NOT NULL REFERENCES "Paciente"(id_paciente),
       resumen TEXT NOT NULL,
       derivacion TEXT,
+      tratamiento JSONB,
+      orden_examenes TEXT,
       created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS tratamiento JSONB;`
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS orden_examenes TEXT;`
+  );
+};
 
 const ensureDoctorSession = async (cookies: APIRoute["context"]["cookies"]) => {
   const token = cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -62,9 +72,16 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   await ensureConsultTable();
 
   const entries = await prisma.$queryRaw<
-    Array<{ id_consulta: number; resumen: string; derivacion: string | null; created_at: Date }>
+    Array<{
+      id_consulta: number;
+      resumen: string;
+      derivacion: string | null;
+      tratamiento: unknown;
+      orden_examenes: string | null;
+      created_at: Date;
+    }>
   >`
-    SELECT id_consulta, resumen, derivacion, created_at
+    SELECT id_consulta, resumen, derivacion, tratamiento, orden_examenes, created_at
     FROM consulta_medica_slot
     WHERE id_paciente = ${patientId}
     ORDER BY created_at DESC

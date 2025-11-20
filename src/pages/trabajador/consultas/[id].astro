@@ -135,6 +135,67 @@ const patientFullName = [
             </select>
           </label>
 
+          <div class="rounded-3xl bg-[#f9f7ff] p-4">
+            <p class="text-sm font-semibold text-[#200934]">Tratamiento</p>
+            <p class="text-xs text-[#200934]/70">Agrega medicamentos con indicaciones, frecuencia y duración.</p>
+            <div class="mt-3 grid gap-3 md:grid-cols-2">
+              <label class="flex flex-col gap-1 text-xs font-semibold text-[#200934]">
+                Medicamento
+                <input
+                  type="text"
+                  data-treatment-med
+                  class="rounded-xl border border-[#200934]/20 px-3 py-2 text-sm text-[#200934] focus:border-[#200934] focus:outline-none"
+                />
+              </label>
+              <label class="flex flex-col gap-1 text-xs font-semibold text-[#200934]">
+                Frecuencia
+                <input
+                  type="text"
+                  data-treatment-frequency
+                  class="rounded-xl border border-[#200934]/20 px-3 py-2 text-sm text-[#200934] focus:border-[#200934] focus:outline-none"
+                  placeholder="Ej: 2 veces al día"
+                />
+              </label>
+              <label class="flex flex-col gap-1 text-xs font-semibold text-[#200934]">
+                Dosis
+                <input
+                  type="text"
+                  data-treatment-dose
+                  class="rounded-xl border border-[#200934]/20 px-3 py-2 text-sm text-[#200934] focus:border-[#200934] focus:outline-none"
+                  placeholder="Ej: 500 mg"
+                />
+              </label>
+              <label class="flex flex-col gap-1 text-xs font-semibold text-[#200934]">
+                Duración
+                <input
+                  type="text"
+                  data-treatment-duration
+                  class="rounded-xl border border-[#200934]/20 px-3 py-2 text-sm text-[#200934] focus:border-[#200934] focus:outline-none"
+                  placeholder="Ej: 7 días"
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              class="mt-3 inline-flex rounded-2xl bg-[#321355] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#200934]"
+              data-add-treatment
+            >
+              Agregar tratamiento
+            </button>
+            <ul class="mt-4 space-y-2 text-sm text-[#200934]" data-treatment-list></ul>
+          </div>
+
+          <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+            Orden de exámenes
+            <textarea
+              rows="3"
+              maxlength="400"
+              data-exams-field
+              class="rounded-2xl border border-[#200934]/20 px-4 py-3 text-sm text-[#200934] focus:border-[#200934] focus:outline-none"
+              placeholder="Describe los exámenes solicitados (ej: hemograma completo, perfil lipídico, etc.)."
+            ></textarea>
+          </label>
+
           <div class="flex flex-wrap gap-3 text-sm font-semibold text-[#200934]">
             <button
               type="button"
@@ -215,11 +276,19 @@ const patientFullName = [
   const historyButton = document.querySelector("[data-history-button]");
   const chronicButton = document.querySelector("[data-chronic-button]");
   const saveButton = document.querySelector("[data-save-button]");
+  const addTreatmentButton = form?.querySelector("[data-add-treatment]");
+  const treatmentList = form?.querySelector("[data-treatment-list]");
+  const treatmentMedInput = form?.querySelector("[data-treatment-med]");
+  const treatmentFreqInput = form?.querySelector("[data-treatment-frequency]");
+  const treatmentDoseInput = form?.querySelector("[data-treatment-dose]");
+  const treatmentDurationInput = form?.querySelector("[data-treatment-duration]");
+  const examsField = form?.querySelector("[data-exams-field]");
   const feedback = form?.querySelector("[data-feedback]");
   const errorBox = form?.querySelector("[data-error]");
   const slotId = Number(form?.slotId.value);
   const patientId = Number(form?.patientId.value);
   let pendingPayload = null;
+  let treatments = [];
 
   const toggleModal = (modal, show) => {
     if (!modal) return;
@@ -259,6 +328,28 @@ const patientFullName = [
               ${
                 entry.derivacion
                   ? `<p class="text-xs text-[#200934]/60 mt-1">Derivación: ${entry.derivacion}</p>`
+                  : ""
+              }
+              ${
+                entry.tratamiento
+                  ? `<div class="mt-2 text-xs text-[#200934]">
+                      <p class="font-semibold">Tratamiento</p>
+                      ${
+                        Array.isArray(entry.tratamiento)
+                          ? entry.tratamiento
+                              .map(
+                                (item) =>
+                                  `<p class="text-[#200934]/70">• ${item.medicamento} (${item.dosis}) cada ${item.frecuencia} por ${item.duracion}</p>`
+                              )
+                              .join("")
+                          : `<p class="text-[#200934]/70">${entry.tratamiento}</p>`
+                      }
+                    </div>`
+                  : ""
+              }
+              ${
+                entry.orden_examenes
+                  ? `<p class="text-xs text-[#200934]/60 mt-1">Orden de exámenes: ${entry.orden_examenes}</p>`
                   : ""
               }
             </article>
@@ -303,6 +394,69 @@ const patientFullName = [
     }
   });
 
+  const renderTreatments = () => {
+    if (!treatmentList) return;
+    if (treatments.length === 0) {
+      treatmentList.innerHTML = `<li class="text-xs text-[#200934]/60">Sin tratamientos asignados.</li>`;
+      return;
+    }
+    treatmentList.innerHTML = treatments
+      .map(
+        (item, index) => `
+        <li class="rounded-2xl border border-[#200934]/10 px-4 py-2 text-sm flex items-center justify-between gap-2">
+          <div>
+            <p class="font-semibold">${item.medicamento}</p>
+            <p class="text-xs text-[#200934]/70">
+              Dosis: ${item.dosis} · Frecuencia: ${item.frecuencia} · Duración: ${item.duracion}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="text-xs font-semibold text-rose-600"
+            data-remove-treatment="${index}"
+          >
+            Quitar
+          </button>
+        </li>
+      `
+      )
+      .join("");
+  };
+
+  renderTreatments();
+
+  addTreatmentButton?.addEventListener("click", () => {
+    const medicamento = treatmentMedInput?.value.trim() ?? "";
+    const frecuencia = treatmentFreqInput?.value.trim() ?? "";
+    const dosis = treatmentDoseInput?.value.trim() ?? "";
+    const duracion = treatmentDurationInput?.value.trim() ?? "";
+
+    if (!medicamento || !frecuencia || !dosis || !duracion) {
+      errorBox.hidden = false;
+      errorBox.textContent = "Completa todos los campos del tratamiento antes de agregarlo.";
+      return;
+    }
+
+    treatments.push({ medicamento, frecuencia, dosis, duracion });
+    renderTreatments();
+
+    treatmentMedInput.value = "";
+    treatmentFreqInput.value = "";
+    treatmentDoseInput.value = "";
+    treatmentDurationInput.value = "";
+    errorBox.hidden = true;
+  });
+
+  treatmentList?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const index = target.dataset.removeTreatment;
+    if (index !== undefined) {
+      treatments.splice(Number(index), 1);
+      renderTreatments();
+    }
+  });
+
   saveButton?.addEventListener("click", () => {
     const formData = new FormData(form);
     const resumen = String(formData.get("resumen") ?? "").trim();
@@ -316,7 +470,12 @@ const patientFullName = [
 
     errorBox.hidden = true;
     feedback.hidden = true;
-    pendingPayload = { resumen, derivacion };
+    pendingPayload = {
+      resumen,
+      derivacion,
+      tratamientos: treatments,
+      exams: examsField?.value.trim() ?? "",
+    };
     toggleModal(confirmModal, true);
   });
 
@@ -341,6 +500,8 @@ const patientFullName = [
           patientId,
           resumen: pendingPayload.resumen,
           derivacion: pendingPayload.derivacion,
+          tratamientos: pendingPayload.tratamientos,
+          ordenExamenes: pendingPayload.exams,
         }),
       });
       feedback.hidden = false;

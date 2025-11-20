@@ -37,6 +37,16 @@ if (!isDoctor && !user.isAdmin) {
 
 const startOfToday = new Date();
 startOfToday.setHours(0, 0, 0, 0);
+const now = new Date();
+
+await prisma.disponibilidadTrabajador.updateMany({
+  where: {
+    id_trabajador: worker.id_trabajador,
+    fecha: { lt: now },
+    estado: { in: ["reservado", "confirmado", "ingresado", "en_curso"] },
+  },
+  data: { estado: "no_se_presenta" },
+});
 
 const upcomingConsultations = await prisma.disponibilidadTrabajador.findMany({
   where: {
@@ -45,7 +55,7 @@ const upcomingConsultations = await prisma.disponibilidadTrabajador.findMany({
       gte: startOfToday,
     },
     estado: {
-      in: ["reservado", "confirmado", "ingresado", "en_curso"],
+      in: ["reservado", "confirmado", "ingresado", "en_curso", "no_se_presenta"],
     },
   },
   include: {
@@ -85,6 +95,15 @@ const groupedConsultations = upcomingConsultations.reduce((acc, consultation) =>
   acc.get(key)?.items.push(consultation);
   return acc;
 }, new Map());
+
+const statusLabels: Record<string, string> = {
+  reservado: "Reservado",
+  confirmado: "Confirmado",
+  ingresado: "Ingresado",
+  en_curso: "En curso",
+  finalizado: "Consulta finalizada",
+  no_se_presenta: "No se presenta",
+};
 
 const workerFullName = [
   worker.primer_nombre_trabajador,
@@ -135,7 +154,7 @@ const workerFullName = [
                     .join(" ")
                 : "Paciente pendiente";
               const hasIntake = Boolean(consultation.ingreso_enfermeria);
-              const statusLabel = hasIntake ? consultation.estado === "en_curso" ? "En curso" : "Ingresado" : "Reservado";
+              const statusLabel = statusLabels[consultation.estado] ?? "Reservado";
               const slotId = consultation.id_disponibilidad;
               const patientId = patient?.id_paciente ?? null;
               return (
@@ -156,7 +175,7 @@ const workerFullName = [
                           Nota del paciente: <span class="font-semibold text-[#200934]">{consultation.nota}</span>
                         </p>
                       ) : null}
-                      {hasIntake ? (
+                      {hasIntake && consultation.estado !== "no_se_presenta" ? (
                         <a
                           href={`/trabajador/consultas/${slotId}`}
                           class="mt-3 inline-flex rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#200934]"
