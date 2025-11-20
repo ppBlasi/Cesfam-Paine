@@ -7,11 +7,14 @@ const user = Astro.locals.user as
       rut: string;
       isAdmin: boolean;
       isWorker: boolean;
-      worker?: {
-        especialidad?: {
-          nombre_especialidad?: string | null;
-        } | null;
-      } | null;
+      worker:
+        | {
+            id: number;
+            estado: string;
+            specialtyId: number | null;
+            specialtyName: string | null;
+          }
+        | null;
     }
   | null;
 

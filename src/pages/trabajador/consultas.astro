@@ -45,12 +45,14 @@ const upcomingConsultations = await prisma.disponibilidadTrabajador.findMany({
       gte: startOfToday,
     },
     estado: {
-      in: ["reservado", "confirmado"],
+      in: ["reservado", "confirmado", "ingresado", "en_curso"],
     },
   },
   include: {
+    ingreso_enfermeria: true,
     paciente: {
       select: {
+        id_paciente: true,
         primer_nombre_paciente: true,
         segundo_nombre_paciente: true,
         apellido_p_paciente: true,
@@ -63,12 +65,6 @@ const upcomingConsultations = await prisma.disponibilidadTrabajador.findMany({
   orderBy: { fecha: "asc" },
   take: 30,
 });
-
-const formatDateTime = (value: Date) =>
-  value.toLocaleString("es-CL", {
-    dateStyle: "full",
-    timeStyle: "short",
-  });
 
 const formatDate = (value: Date) =>
   value.toLocaleDateString("es-CL", {
@@ -89,18 +85,6 @@ const groupedConsultations = upcomingConsultations.reduce((acc, consultation) =>
   acc.get(key)?.items.push(consultation);
   return acc;
 }, new Map());
-
-const groupedArray = Array.from(groupedConsultations.entries())
-  .map(([key, value]) => ({
-    key,
-    date: value.date,
-    items: value.items,
-  }))
-  .sort((a, b) => b.key.localeCompare(a.key))
-  .map((group) => ({
-    ...group,
-    items: group.items.sort((a, b) => b.fecha.getTime() - a.fecha.getTime()),
-  }));
 
 const workerFullName = [
   worker.primer_nombre_trabajador,
@@ -135,78 +119,69 @@ const workerFullName = [
         </a>
       </header>
 
-      {groupedArray.length > 0 ? (
+      {upcomingConsultations.length > 0 ? (
         <div class="space-y-8">
-          <div class="flex flex-wrap items-center gap-3 text-sm text-[#200934]/80">
-            <span class="font-semibold text-[#200934]">Filtrar por fecha:</span>
-            {groupedArray.map((group) => (
-              <a
-                href={`#day-${group.key}`}
-                class="rounded-full border border-[#200934]/20 px-3 py-1 transition hover:border-[#200934]/60 hover:text-[#200934]"
-              >
-                {group.date.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })}
-              </a>
-            ))}
-          </div>
-
-          {groupedArray.map((group) => (
-            <section id={`day-${group.key}`} class="space-y-4">
-              <div class="flex items-center justify-between rounded-3xl bg-[#200934] px-4 py-3 text-white">
-                <div>
-                  <p class="text-sm uppercase tracking-[0.35em] text-white/70">Agenda</p>
-                  <p class="text-2xl font-semibold">{formatDate(group.date)}</p>
-                </div>
-                <span class="rounded-full bg-white/15 px-3 py-1 text-sm font-semibold">
-                  {group.items.length} consulta{group.items.length === 1 ? "" : "s"}
-                </span>
-              </div>
-
-              <ul class="space-y-4">
-                {group.items.map((consultation) => {
-                  const patient = consultation.paciente;
-                  const patientName = patient
-                    ? [
-                        patient.primer_nombre_paciente,
-                        patient.segundo_nombre_paciente,
-                        patient.apellido_p_paciente,
-                        patient.apellido_m_paciente,
-                      ]
-                        .filter(Boolean)
-                        .join(" ")
-                    : "Paciente pendiente";
-                  const statusLabel =
-                    consultation.estado === "confirmado" ? "Confirmada" : "Reservada";
-                  return (
-                    <li class="rounded-3xl border border-[#200934]/10 bg-white p-5 shadow-sm">
-                      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <div>
-                          <p class="text-lg font-semibold text-[#200934]">{patientName}</p>
-                          <p class="text-sm text-[#200934]/70">{consultation.fecha.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</p>
-                          <p class="text-xs font-semibold text-emerald-600">{statusLabel}</p>
-                          {consultation.nota ? (
-                            <p class="mt-2 text-sm text-[#200934]/80">
-                              Nota del paciente: <span class="font-semibold text-[#200934]">{consultation.nota}</span>
-                            </p>
-                          ) : null}
-                        </div>
-                        {patient ? (
-                          <div class="rounded-2xl bg-[#f4f1fb] p-4 text-sm text-[#200934]">
-                            <p class="font-semibold">Contacto paciente</p>
-                            <p class="text-[#200934]/80">Correo: {patient.correo_paciente ?? "Sin correo"}</p>
-                            <p class="text-[#200934]/80">Telefono: {patient.celular_paciente ?? "Sin telefono"}</p>
-                          </div>
-                        ) : (
-                          <p class="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
-                            Esta reserva aun no tiene paciente asignado. Verifica con admision.
-                          </p>
-                        )}
+          <ul class="space-y-4">
+            {upcomingConsultations.map((consultation) => {
+              const patient = consultation.paciente;
+              const patientName = patient
+                ? [
+                    patient.primer_nombre_paciente,
+                    patient.segundo_nombre_paciente,
+                    patient.apellido_p_paciente,
+                    patient.apellido_m_paciente,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
+                : "Paciente pendiente";
+              const hasIntake = Boolean(consultation.ingreso_enfermeria);
+              const statusLabel = hasIntake ? consultation.estado === "en_curso" ? "En curso" : "Ingresado" : "Reservado";
+              const slotId = consultation.id_disponibilidad;
+              const patientId = patient?.id_paciente ?? null;
+              return (
+                <li
+                  class="rounded-3xl border border-[#200934]/10 bg-white p-5 shadow-sm"
+                  data-slot-id={slotId}
+                  data-patient-id={patientId ?? ""}
+                >
+                  <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p class="text-lg font-semibold text-[#200934]">{patientName}</p>
+                      <p class="text-sm text-[#200934]/70">{consultation.fecha.toLocaleString("es-CL", { dateStyle: "full", timeStyle: "short" })}</p>
+                      <p class="text-xs font-semibold text-emerald-600" data-status-label>
+                        {statusLabel}
+                      </p>
+                      {consultation.nota ? (
+                        <p class="mt-2 text-sm text-[#200934]/80">
+                          Nota del paciente: <span class="font-semibold text-[#200934]">{consultation.nota}</span>
+                        </p>
+                      ) : null}
+                      {hasIntake ? (
+                        <a
+                          href={`/trabajador/consultas/${slotId}`}
+                          class="mt-3 inline-flex rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#200934]"
+                          data-start-consult
+                        >
+                          {consultation.estado === "en_curso" ? "Continuar consulta" : "Iniciar consulta"}
+                        </a>
+                      ) : null}
+                    </div>
+                    {patient ? (
+                      <div class="rounded-2xl bg-[#f4f1fb] p-4 text-sm text-[#200934]">
+                        <p class="font-semibold">Contacto paciente</p>
+                        <p class="text-[#200934]/80">Correo: {patient.correo_paciente ?? "Sin correo"}</p>
+                        <p class="text-[#200934]/80">Telefono: {patient.celular_paciente ?? "Sin telefono"}</p>
                       </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          ))}
+                    ) : (
+                      <p class="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
+                        Esta reserva aun no tiene paciente asignado. Verifica con admision.
+                      </p>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       ) : (
         <p class="rounded-3xl border border-dashed border-[#200934]/20 bg-white p-6 text-sm text-[#200934]/70">
@@ -216,3 +191,242 @@ const workerFullName = [
     </div>
   </section>
 </Layout>
+
+<div id="history-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
+  <div class="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl" data-history-container>
+    <div class="flex items-center justify-between">
+      <h3 class="text-xl font-semibold text-[#200934]">Consultas anteriores</h3>
+      <button type="button" class="text-sm font-semibold text-[#200934]" data-history-close>Cerrar</button>
+    </div>
+    <p class="mt-2 text-sm text-[#200934]/70">
+      Ultimos registros guardados para este paciente.
+    </p>
+    <div class="mt-4 space-y-3 text-sm text-[#200934]" data-history-content>
+      <p class="text-[#200934]/70">Selecciona un paciente para ver su historial.</p>
+    </div>
+  </div>
+</div>
+
+<div id="chronic-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
+  <div class="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl" data-chronic-container>
+    <div class="flex items-center justify-between">
+      <h3 class="text-xl font-semibold text-[#200934]">Antecedentes crónicos</h3>
+      <button type="button" class="text-sm font-semibold text-[#200934]" data-chronic-close>Cerrar</button>
+    </div>
+    <div class="mt-4 space-y-3 text-sm text-[#200934]" data-chronic-content>
+      <p class="text-[#200934]/70">Selecciona un paciente para ver sus antecedentes.</p>
+    </div>
+  </div>
+</div>
+
+<div id="consult-confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
+  <div class="w-full max-w-md rounded-3xl bg-white p-6 text-center shadow-2xl">
+    <p class="text-lg font-semibold text-[#200934]">¿Estas seguro que quieres terminar la consulta?</p>
+    <p class="mt-2 text-sm text-[#200934]/70">Podras revisar el registro luego en el historial.</p>
+    <div class="mt-6 flex justify-center gap-4 text-sm font-semibold">
+      <button
+        type="button"
+        class="rounded-2xl bg-[#f4f1fb] px-5 py-2 text-[#200934]"
+        data-confirm-no
+      >
+        No
+      </button>
+      <button
+        type="button"
+        class="rounded-2xl bg-[#321355] px-5 py-2 text-white"
+        data-confirm-yes
+      >
+        Si
+      </button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  const cards = document.querySelectorAll("[data-slot-id]");
+  const historyModal = document.getElementById("history-modal");
+  const chronicModal = document.getElementById("chronic-modal");
+  const confirmModal = document.getElementById("consult-confirm-modal");
+  const historyContent = historyModal?.querySelector("[data-history-content]");
+  const chronicContent = chronicModal?.querySelector("[data-chronic-content]");
+  const confirmNo = confirmModal?.querySelector("[data-confirm-no]");
+  const confirmYes = confirmModal?.querySelector("[data-confirm-yes]");
+  let pendingSave = null;
+
+  const toggleModal = (modal, show) => {
+    if (!modal) return;
+    modal.classList.toggle("hidden", !show);
+    modal.classList.toggle("flex", show);
+    document.body.classList.toggle("overflow-hidden", show);
+  };
+
+  const fetchJSON = async (url, options) => {
+    const response = await fetch(url, options);
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result) {
+      throw new Error(result?.error ?? "Ocurrió un error inesperado.");
+    }
+    return result;
+  };
+
+  const openHistory = async (patientId) => {
+    if (!historyModal || !historyContent || !patientId) return;
+    toggleModal(historyModal, true);
+    historyContent.innerHTML = `<p class="text-sm text-[#200934]/70">Cargando historial...</p>`;
+    try {
+      const data = await fetchJSON(`/api/consultas/historial?pacienteId=${patientId}`);
+      if (!data.entries || data.entries.length === 0) {
+        historyContent.innerHTML = `<p class="text-sm text-[#200934]/70">No se encontraron registros de consultas previas.</p>`;
+        return;
+      }
+      historyContent.innerHTML = data.entries
+        .map(
+          (entry) => `
+            <article class="rounded-2xl border border-[#200934]/10 p-3">
+              <p class="text-xs text-[#200934]/60">${new Date(entry.created_at).toLocaleString("es-CL", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}</p>
+              <p class="text-sm text-[#200934] mt-1">${entry.resumen}</p>
+              ${
+                entry.derivacion
+                  ? `<p class="text-xs text-[#200934]/60 mt-1">Derivación: ${entry.derivacion}</p>`
+                  : ""
+              }
+            </article>
+          `
+        )
+        .join("");
+    } catch (error) {
+      historyContent.innerHTML = `<p class="text-sm text-rose-600">${error instanceof Error ? error.message : "No pudimos cargar el historial."}</p>`;
+    }
+  };
+
+  const openChronic = async (patientId) => {
+    if (!chronicModal || !chronicContent || !patientId) return;
+    toggleModal(chronicModal, true);
+    chronicContent.innerHTML = `<p class="text-sm text-[#200934]/70">Cargando antecedentes...</p>`;
+    try {
+      const data = await fetchJSON(`/api/consultas/cronico?pacienteId=${patientId}`);
+      const { chronic, conditions, medications, treatments, exams } = data;
+      chronicContent.innerHTML = `
+        <p class="text-sm font-semibold text-[#200934]">Paciente ${chronic ? "crónico" : "sin registro crónico"}</p>
+        <div class="mt-3 text-sm text-[#200934]/80 space-y-2">
+          <div>
+            <p class="font-semibold text-[#200934]">Enfermedades</p>
+            <p>${conditions.length ? conditions.join(", ") : "Sin información registrada"}</p>
+          </div>
+          <div>
+            <p class="font-semibold text-[#200934]">Tratamientos</p>
+            <p>${treatments.length ? treatments.join(", ") : "Sin información registrada"}</p>
+          </div>
+          <div>
+            <p class="font-semibold text-[#200934]">Medicamentos</p>
+            <p>${medications.length ? medications.join(", ") : "Sin información registrada"}</p>
+          </div>
+          <div>
+            <p class="font-semibold text-[#200934]">Exámenes recientes</p>
+            <p>${exams.length ? exams.join(", ") : "Sin información registrada"}</p>
+          </div>
+        </div>
+      `;
+    } catch (error) {
+      chronicContent.innerHTML = `<p class="text-sm text-rose-600">${error instanceof Error ? error.message : "No pudimos cargar los antecedentes."}</p>`;
+    }
+  };
+
+  cards.forEach((card) => {
+    const openButton = card.querySelector("[data-open-consult]");
+    const panel = card.querySelector("[data-consult-panel]");
+    const historyButton = card.querySelector("[data-history-button]");
+    const chronicButton = card.querySelector("[data-chronic-button]");
+    const saveButton = card.querySelector("[data-save-button]");
+    const summaryField = card.querySelector("[data-summary-field]");
+    const derivationField = card.querySelector("[data-derivation-field]");
+    const feedback = card.querySelector("[data-consult-feedback]");
+    const errorBox = card.querySelector("[data-consult-error]");
+    const statusLabel = card.querySelector("[data-status-label]");
+    const slotId = Number(card.dataset.slotId);
+    const patientId = Number(card.dataset.patientId);
+
+    openButton?.addEventListener("click", () => panel?.classList.toggle("hidden"));
+    historyButton?.addEventListener("click", () => openHistory(patientId));
+    chronicButton?.addEventListener("click", () => openChronic(patientId));
+
+    saveButton?.addEventListener("click", () => {
+      if (!summaryField || !slotId || !patientId) return;
+      if (!summaryField.value.trim()) {
+        errorBox.hidden = false;
+        errorBox.textContent = "Debes ingresar un resumen de la consulta.";
+        return;
+      }
+      errorBox.hidden = true;
+      feedback.hidden = true;
+      pendingSave = {
+        slotId,
+        patientId,
+        summary: summaryField.value.trim(),
+        derivation: derivationField?.value ?? "",
+        feedback,
+        errorBox,
+        panel,
+        statusLabel,
+        saveButton,
+      };
+      toggleModal(confirmModal, true);
+    });
+  });
+
+  confirmNo?.addEventListener("click", () => {
+    toggleModal(confirmModal, false);
+    pendingSave = null;
+  });
+
+  confirmYes?.addEventListener("click", async () => {
+    if (!pendingSave) {
+      toggleModal(confirmModal, false);
+      return;
+    }
+    confirmYes.setAttribute("disabled", "true");
+    confirmYes.textContent = "Guardando...";
+    try {
+      const result = await fetchJSON("/api/consultas/finalizar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          disponibilidadId: pendingSave.slotId,
+          pacienteId: pendingSave.patientId,
+          resumen: pendingSave.summary,
+          derivacion: pendingSave.derivation,
+        }),
+      });
+      pendingSave.feedback.hidden = false;
+      pendingSave.feedback.textContent = result.message ?? "Consulta guardada.";
+      pendingSave.errorBox.hidden = true;
+      pendingSave.panel?.classList.add("hidden");
+      pendingSave.statusLabel.textContent = "Consulta finalizada";
+      pendingSave.saveButton.setAttribute("disabled", "true");
+    } catch (error) {
+      pendingSave.errorBox.hidden = false;
+      pendingSave.errorBox.textContent =
+        error instanceof Error ? error.message : "No pudimos guardar la consulta.";
+    } finally {
+      confirmYes.removeAttribute("disabled");
+      confirmYes.textContent = "Si";
+      toggleModal(confirmModal, false);
+      pendingSave = null;
+    }
+  });
+
+  historyModal?.addEventListener("click", (event) => {
+    if (event.target === historyModal || (event.target instanceof HTMLElement && event.target.dataset.historyClose !== undefined)) {
+      toggleModal(historyModal, false);
+    }
+  });
+
+  chronicModal?.addEventListener("click", (event) => {
+    if (event.target === chronicModal || (event.target instanceof HTMLElement && event.target.dataset.chronicClose !== undefined)) {
+      toggleModal(chronicModal, false);
+    }
+  });
+</script>

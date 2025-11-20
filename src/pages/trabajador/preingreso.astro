@@ -122,7 +122,7 @@ const workerFullName = [
       </header>
 
       {nurseAppointments.length > 0 ? (
-        <ul class="space-y-4">
+        <ul class="space-y-4" data-appointment-list>
           {nurseAppointments.map((appointment) => {
             const patient = appointment.paciente;
             const doctor = appointment.trabajador;
@@ -153,7 +153,10 @@ const workerFullName = [
                 })
               : "Sin registros";
             return (
-              <li class="rounded-3xl border border-[#200934]/15 bg-white/80 p-5 shadow-sm backdrop-blur">
+              <li
+                class="rounded-3xl border border-[#200934]/15 bg-white/80 p-5 shadow-sm backdrop-blur"
+                data-appointment-container={appointment.id_disponibilidad}
+              >
                 <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div class="space-y-1 text-[#200934]">
                     <p class="text-lg font-semibold">{patientName}</p>
@@ -194,7 +197,7 @@ const workerFullName = [
 <div id="nurse-intake-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
   <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" data-overlay></div>
   <div
-    class="relative z-10 max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+    class="relative z-10 flex max-h-[90vh] w-full max-w-xl flex-col overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
     data-modal-content
   >
     <div class="flex items-start justify-between gap-4">
@@ -302,6 +305,7 @@ const workerFullName = [
   if (modal) {
     const overlay = modal.querySelector("[data-overlay]");
     const form = modal.querySelector("[data-intake-form]");
+    const appointmentList = document.querySelector("[data-appointment-list]");
     const availabilityField = modal.querySelector("[data-field-availability]");
     const patientLabel = modal.querySelector("[data-modal-patient]");
     const doctorLabel = modal.querySelector("[data-modal-doctor]");
@@ -315,6 +319,7 @@ const workerFullName = [
 
     const toggleModal = (show) => {
       modal.classList.toggle("hidden", !show);
+      modal.classList.toggle("flex", show);
       document.body.classList.toggle("overflow-hidden", show);
       if (!show) {
         feedback.hidden = true;
@@ -359,6 +364,19 @@ const workerFullName = [
       }
     });
 
+    const removeAppointmentCard = (slotId) => {
+      const card = document.querySelector(`[data-appointment-container="${slotId}"]`);
+      card?.remove();
+      if (appointmentList && appointmentList.children.length === 0) {
+        appointmentList.insertAdjacentHTML(
+          "afterend",
+          `<p class="rounded-3xl border border-dashed border-[#200934]/20 bg-white/70 p-6 text-sm text-[#200934]/70">
+            No quedan preingresos pendientes para hoy.
+          </p>`
+        );
+      }
+    };
+
     form?.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!availabilityField.value) {
@@ -398,6 +416,8 @@ const workerFullName = [
               })
             : new Date().toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }),
         });
+        removeAppointmentCard(payload.disponibilidadId);
+        toggleModal(false);
       } catch (err) {
         console.error(err);
         errorBox.textContent = err instanceof Error ? err.message : "Error inesperado.";

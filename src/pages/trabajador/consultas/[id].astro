@@ -1,0 +1,375 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import { prisma } from "../../../lib/prisma";
+
+const user = Astro.locals.user;
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+if (!user.isWorker && !user.isAdmin) {
+  return Astro.redirect("/");
+}
+
+const slotId = Number(Astro.params.id);
+
+if (!Number.isInteger(slotId) || slotId <= 0) {
+  return Astro.redirect("/trabajador/consultas");
+}
+
+const worker = await prisma.trabajador.findFirst({
+  where: { rut_trabajador: user.rut },
+  include: {
+    especialidad: {
+      select: {
+        nombre_especialidad: true,
+        id_especialidad: true,
+      },
+    },
+  },
+});
+
+if (!worker) {
+  return Astro.redirect(user.isAdmin ? "/admin" : "/perfil");
+}
+
+const specialtyName = worker.especialidad?.nombre_especialidad ?? "Sin especialidad";
+const isDoctor = specialtyName === "Medicina General";
+
+if (!isDoctor && !user.isAdmin) {
+  return Astro.redirect("/trabajador");
+}
+
+const slot = await prisma.disponibilidadTrabajador.findFirst({
+  where: {
+    id_disponibilidad: slotId,
+    id_trabajador: worker.id_trabajador,
+  },
+  include: {
+    paciente: {
+      select: {
+        id_paciente: true,
+        primer_nombre_paciente: true,
+        segundo_nombre_paciente: true,
+        apellido_p_paciente: true,
+        apellido_m_paciente: true,
+        correo_paciente: true,
+        celular_paciente: true,
+      },
+    },
+    ingreso_enfermeria: true,
+  },
+});
+
+if (!slot || !slot.paciente) {
+  return Astro.redirect("/trabajador/consultas");
+}
+
+const patient = slot.paciente;
+const patientFullName = [
+  patient.primer_nombre_paciente,
+  patient.segundo_nombre_paciente,
+  patient.apellido_p_paciente,
+  patient.apellido_m_paciente,
+]
+  .filter(Boolean)
+  .join(" ");
+---
+
+<Layout title="Consulta en curso">
+  <section class="bg-gradient-to-b from-[#f4f1fb] to-[#e9e2ff] py-12">
+    <div class="mx-auto flex max-w-5xl flex-col gap-8 px-4 sm:px-6">
+      <header class="rounded-3xl bg-[#200934] px-6 py-8 text-white shadow-xl">
+        <p class="text-sm uppercase tracking-[0.35em] text-white/70">Medicina general</p>
+        <h1 class="mt-3 text-3xl font-bold">Consulta con {patientFullName}</h1>
+        <p class="mt-2 text-white/80">
+          Programada para:{" "}
+          <span class="font-semibold text-white">
+            {slot.fecha.toLocaleString("es-CL", { dateStyle: "full", timeStyle: "short" })}
+          </span>
+        </p>
+        <p class="mt-1 text-white/70">Estado actual: {slot.ingreso_enfermeria ? "En curso" : "Reservado"}</p>
+        <a
+          href="/trabajador/consultas"
+          class="mt-6 inline-flex items-center justify-center rounded-2xl bg-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/25"
+        >
+          Volver a la agenda
+        </a>
+      </header>
+
+      <section class="rounded-3xl bg-white p-6 shadow-lg">
+        <h2 class="text-xl font-semibold text-[#200934]">Resumen de la consulta</h2>
+        <p class="mt-1 text-sm text-[#200934]/70">
+          Describe hallazgos, indicaciones y acuerdos con el paciente. Al guardar, la consulta se dará por finalizada.
+        </p>
+
+        <form class="mt-4 space-y-4" data-consultation-form>
+          <input type="hidden" name="slotId" value={slotId} />
+          <input type="hidden" name="patientId" value={patient.id_paciente} />
+
+          <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+            Resumen
+            <textarea
+              name="resumen"
+              rows="5"
+              maxlength="800"
+              class="rounded-2xl border border-[#200934]/20 px-4 py-3 text-sm text-[#200934] focus:border-[#200934] focus:outline-none"
+              placeholder="Detalle los antecedentes de esta consulta."
+              required
+            ></textarea>
+          </label>
+
+          <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+            Derivar a
+            <select
+              name="derivacion"
+              class="rounded-2xl border border-[#200934]/20 px-4 py-3 text-sm text-[#200934] focus:border-[#200934] focus:outline-none"
+            >
+              <option value="">Sin derivación</option>
+              <option value="Medicina General">Medicina General</option>
+              <option value="Nutrición">Nutrición</option>
+              <option value="Kinesiología">Kinesiología</option>
+              <option value="Psicología">Psicología</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </label>
+
+          <div class="flex flex-wrap gap-3 text-sm font-semibold text-[#200934]">
+            <button
+              type="button"
+              class="rounded-2xl bg-[#f4f1fb] px-4 py-2 text-sm font-semibold text-[#200934] transition hover:bg-[#e7def5]"
+              data-history-button
+              data-patient-id={patient.id_paciente}
+            >
+              Ver consultas anteriores
+            </button>
+            <button
+              type="button"
+              class="rounded-2xl bg-[#f4f1fb] px-4 py-2 text-sm font-semibold text-[#200934] transition hover:bg-[#e7def5]"
+              data-chronic-button
+              data-patient-id={patient.id_paciente}
+            >
+              Ver antecedentes crónicos
+            </button>
+            <button
+              type="button"
+              class="rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#200934]"
+              data-save-button
+            >
+              Guardar consulta
+            </button>
+          </div>
+          <p class="text-sm font-semibold text-emerald-600" data-feedback hidden></p>
+          <p class="text-sm font-semibold text-rose-600" data-error hidden></p>
+        </form>
+      </section>
+    </div>
+  </section>
+</Layout>
+
+<div id="history-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
+  <div class="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl" data-history-container>
+    <div class="flex items-center justify-between">
+      <h3 class="text-xl font-semibold text-[#200934]">Consultas anteriores</h3>
+      <button type="button" class="text-sm font-semibold text-[#200934]" data-history-close>Cerrar</button>
+    </div>
+    <div class="mt-4 space-y-3 text-sm text-[#200934]" data-history-content>
+      <p class="text-[#200934]/70">Selecciona un paciente para ver su historial.</p>
+    </div>
+  </div>
+</div>
+
+<div id="chronic-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
+  <div class="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl" data-chronic-container>
+    <div class="flex items-center justify-between">
+      <h3 class="text-xl font-semibold text-[#200934]">Antecedentes crónicos</h3>
+      <button type="button" class="text-sm font-semibold text-[#200934]" data-chronic-close>Cerrar</button>
+    </div>
+    <div class="mt-4 space-y-3 text-sm text-[#200934]" data-chronic-content>
+      <p class="text-[#200934]/70">Selecciona un paciente para ver sus antecedentes.</p>
+    </div>
+  </div>
+</div>
+
+<div id="consult-confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
+  <div class="w-full max-w-md rounded-3xl bg-white p-6 text-center shadow-2xl">
+    <p class="text-lg font-semibold text-[#200934]">¿Estas seguro que quieres terminar la consulta?</p>
+    <p class="mt-2 text-sm text-[#200934]/70">Podrás revisar el registro luego en el historial.</p>
+    <div class="mt-6 flex justify-center gap-4 text-sm font-semibold">
+      <button type="button" class="rounded-2xl bg-[#f4f1fb] px-5 py-2 text-[#200934]" data-confirm-no>No</button>
+      <button type="button" class="rounded-2xl bg-[#321355] px-5 py-2 text-white" data-confirm-yes>Si</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  const form = document.querySelector("[data-consultation-form]");
+  const historyModal = document.getElementById("history-modal");
+  const chronicModal = document.getElementById("chronic-modal");
+  const confirmModal = document.getElementById("consult-confirm-modal");
+  const historyContent = historyModal?.querySelector("[data-history-content]");
+  const chronicContent = chronicModal?.querySelector("[data-chronic-content]");
+  const confirmNo = confirmModal?.querySelector("[data-confirm-no]");
+  const confirmYes = confirmModal?.querySelector("[data-confirm-yes]");
+  const historyButton = document.querySelector("[data-history-button]");
+  const chronicButton = document.querySelector("[data-chronic-button]");
+  const saveButton = document.querySelector("[data-save-button]");
+  const feedback = form?.querySelector("[data-feedback]");
+  const errorBox = form?.querySelector("[data-error]");
+  const slotId = Number(form?.slotId.value);
+  const patientId = Number(form?.patientId.value);
+  let pendingPayload = null;
+
+  const toggleModal = (modal, show) => {
+    if (!modal) return;
+    modal.classList.toggle("hidden", !show);
+    modal.classList.toggle("flex", show);
+    document.body.classList.toggle("overflow-hidden", show);
+  };
+
+  const fetchJSON = async (url, options) => {
+    const response = await fetch(url, options);
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result) {
+      throw new Error(result?.error ?? "Se produjo un error inesperado.");
+    }
+    return result;
+  };
+
+  historyButton?.addEventListener("click", async () => {
+    if (!historyModal || !historyContent) return;
+    toggleModal(historyModal, true);
+    historyContent.innerHTML = `<p class="text-sm text-[#200934]/70">Cargando historial...</p>`;
+    try {
+      const data = await fetchJSON(`/api/consultas/${slotId}/historial?pacienteId=${patientId}`);
+      if (!data.entries || data.entries.length === 0) {
+        historyContent.innerHTML = `<p class="text-sm text-[#200934]/70">No se encontraron registros previos.</p>`;
+        return;
+      }
+      historyContent.innerHTML = data.entries
+        .map(
+          (entry) => `
+            <article class="rounded-2xl border border-[#200934]/10 p-3">
+              <p class="text-xs text-[#200934]/60">${new Date(entry.created_at).toLocaleString("es-CL", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}</p>
+              <p class="text-sm text-[#200934] mt-1">${entry.resumen}</p>
+              ${
+                entry.derivacion
+                  ? `<p class="text-xs text-[#200934]/60 mt-1">Derivación: ${entry.derivacion}</p>`
+                  : ""
+              }
+            </article>
+          `
+        )
+        .join("");
+    } catch (error) {
+      historyContent.innerHTML = `<p class="text-sm text-rose-600">${error instanceof Error ? error.message : "No pudimos cargar el historial."}</p>`;
+    }
+  });
+
+  chronicButton?.addEventListener("click", async () => {
+    if (!chronicModal || !chronicContent) return;
+    toggleModal(chronicModal, true);
+    chronicContent.innerHTML = `<p class="text-sm text-[#200934]/70">Cargando antecedentes...</p>`;
+    try {
+      const data = await fetchJSON(`/api/consultas/${slotId}/cronico?pacienteId=${patientId}`);
+      const { chronic, conditions, treatments, medications, exams } = data;
+      chronicContent.innerHTML = `
+        <p class="text-sm font-semibold text-[#200934]">Paciente ${chronic ? "crónico" : "sin registro crónico"}</p>
+        <div class="mt-3 text-sm text-[#200934]/80 space-y-2">
+          <div>
+            <p class="font-semibold text-[#200934]">Enfermedades</p>
+            <p>${conditions.length ? conditions.join(", ") : "Sin información registrada"}</p>
+          </div>
+          <div>
+            <p class="font-semibold text-[#200934]">Tratamientos</p>
+            <p>${treatments.length ? treatments.join(", ") : "Sin información registrada"}</p>
+          </div>
+          <div>
+            <p class="font-semibold text-[#200934]">Medicamentos</p>
+            <p>${medications.length ? medications.join(", ") : "Sin información registrada"}</p>
+          </div>
+          <div>
+            <p class="font-semibold text-[#200934]">Exámenes recientes</p>
+            <p>${exams.length ? exams.join(", ") : "Sin información registrada"}</p>
+          </div>
+        </div>
+      `;
+    } catch (error) {
+      chronicContent.innerHTML = `<p class="text-sm text-rose-600">${error instanceof Error ? error.message : "No pudimos cargar los antecedentes."}</p>`;
+    }
+  });
+
+  saveButton?.addEventListener("click", () => {
+    const formData = new FormData(form);
+    const resumen = String(formData.get("resumen") ?? "").trim();
+    const derivacion = String(formData.get("derivacion") ?? "").trim();
+
+    if (!resumen) {
+      errorBox.hidden = false;
+      errorBox.textContent = "Debes ingresar un resumen de la consulta.";
+      return;
+    }
+
+    errorBox.hidden = true;
+    feedback.hidden = true;
+    pendingPayload = { resumen, derivacion };
+    toggleModal(confirmModal, true);
+  });
+
+  confirmNo?.addEventListener("click", () => {
+    toggleModal(confirmModal, false);
+    pendingPayload = null;
+  });
+
+  confirmYes?.addEventListener("click", async () => {
+    if (!pendingPayload) {
+      toggleModal(confirmModal, false);
+      return;
+    }
+    confirmYes.setAttribute("disabled", "true");
+    confirmYes.textContent = "Guardando...";
+    try {
+      const result = await fetchJSON(`/api/consultas/${slotId}/finalizar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slotId,
+          patientId,
+          resumen: pendingPayload.resumen,
+          derivacion: pendingPayload.derivacion,
+        }),
+      });
+      feedback.hidden = false;
+      feedback.textContent = result.message ?? "Consulta guardada.";
+      errorBox.hidden = true;
+      saveButton.setAttribute("disabled", "true");
+      setTimeout(() => {
+        window.location.href = "/trabajador/consultas";
+      }, 800);
+    } catch (error) {
+      errorBox.hidden = false;
+      errorBox.textContent = error instanceof Error ? error.message : "No pudimos guardar la consulta.";
+    } finally {
+      confirmYes.removeAttribute("disabled");
+      confirmYes.textContent = "Si";
+      toggleModal(confirmModal, false);
+      pendingPayload = null;
+    }
+  });
+
+  historyModal?.addEventListener("click", (event) => {
+    if (event.target === historyModal || event.target?.dataset?.historyClose !== undefined) {
+      toggleModal(historyModal, false);
+    }
+  });
+
+  chronicModal?.addEventListener("click", (event) => {
+    if (event.target === chronicModal || event.target?.dataset?.chronicClose !== undefined) {
+      toggleModal(chronicModal, false);
+    }
+  });
+</script>

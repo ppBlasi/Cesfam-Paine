@@ -115,6 +115,13 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       },
     });
 
+    await prisma.disponibilidadTrabajador.update({
+      where: { id_disponibilidad: disponibilidadId },
+      data: {
+        estado: "ingresado",
+      },
+    });
+
     return jsonResponse(200, {
       message: "Ingreso registrado correctamente.",
       record,
