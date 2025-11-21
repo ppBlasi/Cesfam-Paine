@@ -13,7 +13,10 @@
     "prisma:migrate:reset": "prisma migrate reset --force",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:unit": "vitest",
+    "test:e2e": "playwright test",
+    "audit:security": "zap‐cli ..."
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -37,8 +40,15 @@
     "vue": "^3.5.22"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/vue": "^8.1.0",
     "@types/bcryptjs": "^3.0.0",
+    "@vitest/ui": "4.0.10",
+    "@vue/test-utils": "^2.4.6",
+    "playwright": "^1.56.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^4.0.10"
   }
 }
