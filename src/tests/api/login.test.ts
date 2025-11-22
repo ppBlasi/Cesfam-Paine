@@ -23,6 +23,7 @@ vi.mock("../../../src/utils/rut", () => ({
 
 vi.mock("../../../src/utils/admin", () => ({
   getWorkerByRut: vi.fn().mockResolvedValue(null),
+  ADMIN_CARGO: "ADMIN",
   ADMIN_SPECIALTY_NAME: "Administrador",
 }));
 

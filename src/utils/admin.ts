@@ -2,6 +2,7 @@ import { prisma } from "../lib/prisma";
 
 export const ADMIN_SPECIALTY_NAME = "Administracion";
 export const GENERAL_SPECIALTY_NAME = "Medicina General";
+export const ADMIN_CARGO = "ADMIN";
 
 export const getWorkerByRut = async (rut: string) => {
   if (!rut) {
@@ -23,5 +24,8 @@ export const getWorkerByRut = async (rut: string) => {
 
 export const isAdminByRut = async (rut: string) => {
   const worker = await getWorkerByRut(rut);
-  return worker?.especialidad?.nombre_especialidad === ADMIN_SPECIALTY_NAME;
+  return (
+    worker?.cargo === ADMIN_CARGO ||
+    worker?.especialidad?.nombre_especialidad === ADMIN_SPECIALTY_NAME
+  );
 };

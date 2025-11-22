@@ -28,7 +28,11 @@ const ensureNurseSession = async (cookies: APIRoute["context"]["cookies"]) => {
 
   const worker = await getWorkerByRut(session.usuario.rut);
 
-  if (!worker || worker.especialidad?.nombre_especialidad !== "Enfermeria") {
+  if (
+    !worker ||
+    worker.cargo !== "MEDICO" ||
+    worker.especialidad?.nombre_especialidad !== "Enfermeria"
+  ) {
     return null;
   }
 

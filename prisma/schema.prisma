@@ -7,6 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum CargoTrabajador {
+  ADMIN
+  RECEPCION
+  MEDICO
+}
+
 model AreaExamen {
   id_area_examen Int      @id @default(autoincrement())
   nombre_area    String
@@ -131,6 +137,7 @@ model Trabajador {
   correo_trabajador         String
   direccion_trabajador      String
   estado_trabajador         String
+  cargo                     CargoTrabajador @default(RECEPCION)
   id_empresa                Int?
   id_especialidad           Int?
   empresa                   Empresa?      @relation(fields: [id_empresa], references: [id_empresa])
@@ -142,6 +149,7 @@ model Especialidad {
   id_especialidad     Int          @id @default(autoincrement())
   nombre_especialidad String
   trabajadores        Trabajador[]
+  examenes            ExamenEspecialidad[]
 }
 
 model Empresa {
@@ -227,4 +235,14 @@ model IngresoEnfermeria {
   paciente           Paciente                 @relation(fields: [id_paciente], references: [id_paciente])
 
   @@map("ingreso_enfermeria")
+}
+
+model ExamenEspecialidad {
+  id_examen_especialidad Int           @id @default(autoincrement())
+  nombre_examen          String
+  id_especialidad        Int
+  especialidad           Especialidad  @relation(fields: [id_especialidad], references: [id_especialidad])
+
+  @@map("examen_especialidad")
+  @@unique([id_especialidad, nombre_examen], map: "especialidad_examen_unico")
 }

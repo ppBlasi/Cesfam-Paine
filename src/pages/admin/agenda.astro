@@ -1,7 +1,7 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import { prisma } from "../../lib/prisma";
-import { ADMIN_SPECIALTY_NAME } from "../../utils/admin";
+import { ADMIN_CARGO } from "../../utils/admin";
 
 const user = Astro.locals.user;
 
@@ -10,14 +10,8 @@ if (!user?.isAdmin) {
 }
 
 const nonAdminFilter = {
-  OR: [
-    { especialidad: { is: null } },
-    {
-      especialidad: {
-        is: { nombre_especialidad: { not: ADMIN_SPECIALTY_NAME } },
-      },
-    },
-  ],
+  cargo: "MEDICO",
+  id_especialidad: { not: null },
 };
 
 const trabajadores = await prisma.trabajador.findMany({

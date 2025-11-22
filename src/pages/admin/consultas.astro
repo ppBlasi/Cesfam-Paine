@@ -1,0 +1,165 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { prisma } from "../../lib/prisma";
+
+const user = Astro.locals.user;
+
+if (!user?.isAdmin) {
+  return Astro.redirect("/");
+}
+
+let consultas:
+  | {
+      id_consulta: number;
+      id_disponibilidad: number | null;
+      id_paciente: number | null;
+      resumen: string;
+      derivacion: string | null;
+      tratamiento: unknown;
+      orden_examenes: string | null;
+      created_at: Date | null;
+      updated_at: Date | null;
+      fecha_slot: Date | null;
+      estado_slot: string | null;
+      paciente: string | null;
+      trabajador: string | null;
+      especialidad: string | null;
+    }[]
+  | null = null;
+
+let loadError: string | null = null;
+
+try {
+  // Asegura la existencia de la tabla (algunos entornos no ejecutan la creación previa)
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS consulta_medica_slot (
+      id_consulta SERIAL PRIMARY KEY,
+      id_disponibilidad INTEGER UNIQUE,
+      id_paciente INTEGER,
+      resumen TEXT NOT NULL,
+      derivacion TEXT,
+      tratamiento JSONB,
+      orden_examenes TEXT,
+      created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  // Garantiza columnas opcionales en entornos donde la tabla ya existía sin ellas
+  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS tratamiento JSONB;`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS orden_examenes TEXT;`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS derivacion TEXT;`);
+
+  const sql = `
+    SELECT
+      cms.id_consulta,
+      cms.id_disponibilidad,
+      cms.id_paciente,
+      cms.resumen,
+      cms.derivacion,
+      cms.tratamiento,
+      cms.orden_examenes,
+      cms.created_at,
+      cms.updated_at,
+      dt.fecha        AS fecha_slot,
+      dt.estado       AS estado_slot,
+      CONCAT_WS(' ',
+        p.primer_nombre_paciente,
+        p.segundo_nombre_paciente,
+        p.apellido_p_paciente,
+        p.apellido_m_paciente
+      )               AS paciente,
+      CONCAT_WS(' ',
+        t.primer_nombre_trabajador,
+        t.segundo_nombre_trabajador,
+        t.apellido_p_trabajador,
+        t.apellido_m_trabajador
+      )               AS trabajador,
+      e.nombre_especialidad AS especialidad
+    FROM consulta_medica_slot cms
+    LEFT JOIN disponibilidad_trabajador dt ON dt.id_disponibilidad = cms.id_disponibilidad
+    LEFT JOIN "Paciente" p ON p.id_paciente = cms.id_paciente
+    LEFT JOIN "Trabajador" t ON t.id_trabajador = dt.id_trabajador
+    LEFT JOIN "Especialidad" e ON e.id_especialidad = t.id_especialidad
+    ORDER BY cms.created_at DESC NULLS LAST, cms.id_consulta DESC
+  `;
+
+  consultas = (await prisma.$queryRawUnsafe(sql)) as any[];
+} catch (error) {
+  console.error("admin consultas list error", error);
+  loadError = "No pudimos cargar las consultas. Intenta más tarde.";
+  consultas = [];
+}
+
+const formatDateTime = (value: Date | null | undefined) =>
+  value ? value.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : "Sin fecha";
+---
+
+<Layout title="Consultas registradas">
+  <section class="bg-gradient-to-b from-[#200934] via-[#2d1250] to-[#200934] py-12">
+    <div class="mx-auto flex max-w-6xl flex-col gap-8 px-4 sm:px-6">
+      <header class="flex flex-wrap items-center justify-between gap-4 text-white">
+        <div>
+          <p class="text-sm uppercase tracking-[0.35em] text-white/70">Equipo</p>
+          <h1 class="mt-3 text-3xl font-bold sm:text-4xl">Consultas realizadas</h1>
+          <p class="mt-2 max-w-3xl text-white/80">
+            Revisa todas las consultas médicas registradas. Selecciona una para ver y editar su detalle.
+          </p>
+        </div>
+        <a
+          href="/admin"
+          class="inline-flex items-center rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
+        >
+          ← Volver al panel
+        </a>
+      </header>
+
+      <article class="rounded-3xl bg-white p-6 shadow-xl">
+        {loadError ? (
+          <div class="rounded-2xl border border-dashed border-rose-200 bg-rose-50 px-4 py-6 text-sm text-rose-700">
+            {loadError}
+          </div>
+        ) : consultas && consultas.length > 0 ? (
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-[#200934]/10 text-sm text-[#200934]/80">
+              <thead class="bg-[#f9f7ff] text-[#200934]">
+                <tr>
+                  <th class="px-3 py-3 text-left font-semibold">ID</th>
+                  <th class="px-3 py-3 text-left font-semibold">Paciente</th>
+                  <th class="px-3 py-3 text-left font-semibold">Profesional</th>
+                  <th class="px-3 py-3 text-left font-semibold">Especialidad</th>
+                  <th class="px-3 py-3 text-left font-semibold">Fecha</th>
+                  <th class="px-3 py-3 text-left font-semibold">Resumen</th>
+                  <th class="px-3 py-3 text-left font-semibold">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#200934]/10">
+                {consultas.map((consulta) => (
+                  <tr class="hover:bg-[#f9f7ff]">
+                    <td class="px-3 py-3 font-semibold text-[#200934]">#{consulta.id_consulta}</td>
+                    <td class="px-3 py-3">{consulta.paciente ?? "Sin paciente"}</td>
+                    <td class="px-3 py-3">{consulta.trabajador ?? "Sin asignar"}</td>
+                    <td class="px-3 py-3">{consulta.especialidad ?? "Sin especialidad"}</td>
+                    <td class="px-3 py-3">{formatDateTime(consulta.fecha_slot ?? consulta.created_at)}</td>
+                    <td class="px-3 py-3 line-clamp-2">{consulta.resumen ?? "Sin resumen"}</td>
+                    <td class="px-3 py-3">
+                      <a
+                        href={`/admin/consultas/${consulta.id_consulta}`}
+                        class="inline-flex items-center rounded-2xl bg-[#321355] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#200934] focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[#321355]"
+                      >
+                        Ver / Editar
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div class="rounded-2xl border border-dashed border-[#200934]/20 bg-[#faf7ff] px-4 py-6 text-sm text-[#200934]/70">
+            Aún no se registran consultas médicas o la tabla no existe.
+          </div>
+        )}
+      </article>
+    </div>
+  </section>
+</Layout>

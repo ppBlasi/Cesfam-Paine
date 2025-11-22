@@ -1,6 +1,10 @@
 import type { MiddlewareHandler } from "astro";
 import { SESSION_COOKIE_NAME, getSessionFromToken } from "./utils/session";
-import { ADMIN_SPECIALTY_NAME, getWorkerByRut } from "./utils/admin";
+import {
+  ADMIN_CARGO,
+  ADMIN_SPECIALTY_NAME,
+  getWorkerByRut,
+} from "./utils/admin";
 
 type AuthenticatedUser = {
   id: number;
@@ -11,6 +15,7 @@ type AuthenticatedUser = {
     | {
         id: number;
         estado: string;
+        cargo: string;
         specialtyId: number | null;
         specialtyName: string | null;
       }
@@ -28,7 +33,7 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
       const workerRecord = await getWorkerByRut(session.usuario.rut);
       const isWorker = Boolean(workerRecord);
       const isAdmin =
-        Boolean(workerRecord?.especialidad) &&
+        workerRecord?.cargo === ADMIN_CARGO ||
         workerRecord?.especialidad?.nombre_especialidad ===
           ADMIN_SPECIALTY_NAME;
 
@@ -41,6 +46,7 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
           ? {
               id: workerRecord.id_trabajador,
               estado: workerRecord.estado_trabajador,
+              cargo: workerRecord.cargo,
               specialtyId: workerRecord.especialidad?.id_especialidad ?? null,
               specialtyName:
                 workerRecord.especialidad?.nombre_especialidad ?? null,

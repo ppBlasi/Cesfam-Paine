@@ -12,6 +12,7 @@ import {
 } from "../../utils/session";
 import {
   ADMIN_SPECIALTY_NAME,
+  ADMIN_CARGO,
   getWorkerByRut,
 } from "../../utils/admin";
 
@@ -56,8 +57,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     const workerRecord = await getWorkerByRut(normalizedRut);
     const isWorker = Boolean(workerRecord);
     const isAdmin =
+      workerRecord?.cargo === ADMIN_CARGO ||
       workerRecord?.especialidad?.nombre_especialidad ===
-      ADMIN_SPECIALTY_NAME;
+        ADMIN_SPECIALTY_NAME;
 
     if (workerRecord && workerRecord.estado_trabajador !== "Activo") {
       return jsonResponse(403, {

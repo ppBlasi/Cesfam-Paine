@@ -1,0 +1,313 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import { prisma } from "../../../lib/prisma";
+
+const user = Astro.locals.user;
+
+if (!user?.isAdmin) {
+  return Astro.redirect("/");
+}
+
+const idParam = Number(Astro.params.id);
+
+if (!Number.isInteger(idParam) || idParam <= 0) {
+  return Astro.redirect("/admin/consultas");
+}
+
+let consulta:
+  | {
+      id_consulta: number;
+      id_disponibilidad: number | null;
+      id_paciente: number | null;
+      resumen: string;
+      derivacion: string | null;
+      tratamiento: unknown;
+      orden_examenes: string | null;
+      created_at: Date | null;
+      updated_at: Date | null;
+      fecha_slot: Date | null;
+      estado_slot: string | null;
+      paciente: string | null;
+      trabajador: string | null;
+      especialidad: string | null;
+    }
+  | null = null;
+
+try {
+  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS tratamiento JSONB;`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS orden_examenes TEXT;`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS derivacion TEXT;`);
+
+  const rows = (await prisma.$queryRaw`
+    SELECT
+      cms.id_consulta,
+      cms.id_disponibilidad,
+      cms.id_paciente,
+      cms.resumen,
+      cms.derivacion,
+      cms.tratamiento,
+      cms.orden_examenes,
+      cms.created_at,
+      cms.updated_at,
+      dt.fecha        AS fecha_slot,
+      dt.estado       AS estado_slot,
+      CONCAT_WS(' ',
+        p.primer_nombre_paciente,
+        p.segundo_nombre_paciente,
+        p.apellido_p_paciente,
+        p.apellido_m_paciente
+      )               AS paciente,
+      CONCAT_WS(' ',
+        t.primer_nombre_trabajador,
+        t.segundo_nombre_trabajador,
+        t.apellido_p_trabajador,
+        t.apellido_m_trabajador
+      )               AS trabajador,
+      e.nombre_especialidad AS especialidad
+    FROM consulta_medica_slot cms
+    LEFT JOIN disponibilidad_trabajador dt ON dt.id_disponibilidad = cms.id_disponibilidad
+    LEFT JOIN "Paciente" p ON p.id_paciente = cms.id_paciente
+    LEFT JOIN "Trabajador" t ON t.id_trabajador = dt.id_trabajador
+    LEFT JOIN "Especialidad" e ON e.id_especialidad = t.id_especialidad
+    WHERE cms.id_consulta = ${idParam}
+    LIMIT 1
+  `) as any[];
+  consulta = rows[0] ?? null;
+} catch (error) {
+  console.error("admin consulta detail error", error);
+  consulta = null;
+}
+
+if (!consulta) {
+  return Astro.redirect("/admin/consultas");
+}
+
+const formatDateTime = (value: Date | null | undefined) =>
+  value ? value.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : "Sin fecha";
+
+const especialidades = await prisma.especialidad.findMany({
+  orderBy: { nombre_especialidad: "asc" },
+});
+
+const especialidadesClinicas = especialidades.filter(
+  (opt) => !["administracion", "recepcion"].includes(opt.nombre_especialidad.toLowerCase()),
+);
+
+const hasCustomDerivacion =
+  consulta.derivacion &&
+  !especialidadesClinicas.some(
+    (opt) => opt.nombre_especialidad.toLowerCase() === consulta.derivacion?.toLowerCase(),
+  );
+
+const examenesCatalogo = (prisma as any).examenEspecialidad?.findMany
+  ? await (prisma as any).examenEspecialidad.findMany({
+      orderBy: [{ id_especialidad: "asc" }, { nombre_examen: "asc" }],
+      include: { especialidad: { select: { nombre_especialidad: true } } },
+    })
+  : [];
+---
+
+<Layout title={`Consulta #${consulta.id_consulta}`}>
+  <section class="bg-gradient-to-b from-[#200934] via-[#2d1250] to-[#200934] py-12">
+    <div class="mx-auto flex max-w-5xl flex-col gap-8 px-4 sm:px-6">
+      <header class="flex flex-wrap items-center justify-between gap-4 text-white">
+        <div>
+          <p class="text-sm uppercase tracking-[0.35em] text-white/70">Equipo</p>
+          <h1 class="mt-3 text-3xl font-bold sm:text-4xl">Consulta #{consulta.id_consulta}</h1>
+          <p class="mt-2 max-w-3xl text-white/80">
+            Detalle completo de la consulta registrada. Puedes actualizar el resumen, derivación, tratamiento u órdenes de examen.
+          </p>
+        </div>
+        <a
+          href="/admin/consultas"
+          class="inline-flex items-center rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
+        >
+          ← Volver al listado
+        </a>
+      </header>
+
+      <div class="grid gap-6 lg:grid-cols-5">
+        <article class="lg:col-span-2 space-y-3 rounded-3xl bg-white p-6 text-sm text-[#200934]/80 shadow-lg">
+          <h2 class="text-xl font-semibold text-[#200934]">Resumen del caso</h2>
+          <p><span class="font-semibold">Paciente:</span> {consulta.paciente ?? "Sin paciente"}</p>
+          <p><span class="font-semibold">Profesional:</span> {consulta.trabajador ?? "Sin asignar"}</p>
+          <p><span class="font-semibold">Especialidad:</span> {consulta.especialidad ?? "Sin especialidad"}</p>
+          <p><span class="font-semibold">Fecha bloque:</span> {formatDateTime(consulta.fecha_slot)}</p>
+          <p><span class="font-semibold">Estado bloque:</span> {consulta.estado_slot ?? "Sin estado"}</p>
+          <p><span class="font-semibold">Creada:</span> {formatDateTime(consulta.created_at)}</p>
+          <p><span class="font-semibold">Última actualización:</span> {formatDateTime(consulta.updated_at)}</p>
+        </article>
+
+        <article class="lg:col-span-3 rounded-3xl bg-white p-6 shadow-lg">
+          <h2 class="text-xl font-semibold text-[#200934]">Editar consulta</h2>
+          <p class="mt-1 text-sm text-[#200934]/70">Ajusta los mismos campos que completa el médico al registrar la consulta.</p>
+
+          <form id="consulta-edit-form" class="mt-4 space-y-4">
+            <input type="hidden" id="consultaId" value={consulta.id_consulta} />
+
+            <div>
+              <label class="mb-2 block text-sm font-semibold text-[#200934]" for="resumen">Resumen de la consulta</label>
+              <textarea
+                id="resumen"
+                name="resumen"
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-sm text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+                rows="3"
+              >{consulta.resumen ?? ""}</textarea>
+            </div>
+
+            <div>
+              <label class="mb-2 block text-sm font-semibold text-[#200934]" for="derivacion">Derivación</label>
+              <select
+                id="derivacion"
+                name="derivacion"
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-sm text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+              >
+                <option value="" selected={consulta.derivacion === null || consulta.derivacion === ""}>
+                  Sin derivación
+                </option>
+                {especialidades.map((opt) => (
+                  <option
+                    value={opt.nombre_especialidad}
+                    selected={opt.nombre_especialidad === (consulta.derivacion ?? "")}
+                  >
+                    {opt.nombre_especialidad}
+                  </option>
+                ))}
+                {hasCustomDerivacion ? (
+                  <option value={consulta.derivacion ?? ""} selected>
+                    {`Actual: ${consulta.derivacion}`}
+                  </option>
+                ) : null}
+              </select>
+              <p class="mt-1 text-xs text-[#200934]/60">Usa la opción "Otro" si necesitas registrar una derivación distinta.</p>
+            </div>
+
+            <div>
+              <label class="mb-2 block text-sm font-semibold text-[#200934]" for="tratamiento">Tratamientos</label>
+              <textarea
+                id="tratamiento"
+                name="tratamiento"
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-sm text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+                rows="3"
+                placeholder='Ej: ["Paracetamol 500mg cada 8h", "Reposo 48h"] o texto libre'
+              >{typeof consulta.tratamiento === "string" ? consulta.tratamiento : JSON.stringify(consulta.tratamiento ?? "", null, 2)}</textarea>
+            </div>
+
+            <div>
+              <label class="mb-2 block text-sm font-semibold text-[#200934]" for="ordenExamenes">Órdenes de examen</label>
+              <textarea
+                id="ordenExamenes"
+                name="ordenExamenes"
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-sm text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+                rows="2"
+                placeholder="Ej: Hemograma, perfil lipídico"
+              >{consulta.orden_examenes ?? ""}</textarea>
+            </div>
+
+            <div class="rounded-2xl border border-[#200934]/10 bg-[#f4f1fb] px-4 py-3">
+              <p class="text-sm font-semibold text-[#200934]">Catálogo de exámenes</p>
+              <p class="text-xs text-[#200934]/60">Selecciona para agregar al campo de órdenes.</p>
+              <div class="mt-3 flex flex-wrap gap-2" data-exams-catalog>
+                {examenesCatalogo.map((item) => (
+                  <button
+                    type="button"
+                    class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#200934] shadow-sm transition hover:bg-[#e8e0fb]"
+                    data-exam-suggest={item.nombre_examen}
+                    data-exam-specialty={item.especialidad?.nombre_especialidad ?? ""}
+                  >
+                    {item.nombre_examen} • {item.especialidad?.nombre_especialidad ?? "Sin especialidad"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <button
+                id="consulta-edit-submit"
+                type="submit"
+                class="w-full rounded-2xl bg-[#321355] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#200934] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355]"
+              >
+                Guardar cambios
+              </button>
+              <p id="consulta-edit-status" class="min-h-[1.25rem] text-sm font-medium text-[#200934]" aria-live="polite"></p>
+            </div>
+          </form>
+        </article>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<script type="module">
+  const form = document.querySelector('#consulta-edit-form');
+  const statusField = document.querySelector('#consulta-edit-status');
+  const submitButton = document.querySelector('#consulta-edit-submit');
+  const consultaIdInput = document.querySelector('#consultaId');
+  const resumenInput = document.querySelector('#resumen');
+  const derivacionInput = document.querySelector('#derivacion');
+  const tratamientoInput = document.querySelector('#tratamiento');
+  const ordenExamenesInput = document.querySelector('#ordenExamenes');
+  const catalogButtons = Array.from(document.querySelectorAll('[data-exam-suggest]'));
+
+  const setStatus = (message, isError = false) => {
+    if (!statusField) return;
+    statusField.textContent = message ?? '';
+    statusField.classList.toggle('text-rose-600', Boolean(isError));
+    statusField.classList.toggle('text-emerald-600', !isError);
+  };
+
+  catalogButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!ordenExamenesInput || !(ordenExamenesInput instanceof HTMLTextAreaElement)) return;
+      const exam = btn.getAttribute('data-exam-suggest') ?? '';
+      if (!exam) return;
+      const current = ordenExamenesInput.value.trim();
+      const already = current.split(',').map((v) => v.trim().toLowerCase()).includes(exam.toLowerCase());
+      if (already) return;
+      ordenExamenesInput.value = current ? `${current}, ${exam}` : exam;
+    });
+  });
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    setStatus('');
+
+    const consultaId = Number(consultaIdInput?.value ?? '0');
+    if (!Number.isInteger(consultaId) || consultaId <= 0) {
+      setStatus('Consulta inválida.', true);
+      return;
+    }
+
+    const payload = {
+      consultaId,
+      resumen: resumenInput?.value ?? '',
+      derivacion: derivacionInput?.value ?? '',
+      tratamiento: tratamientoInput?.value ?? '',
+      ordenExamenes: ordenExamenesInput?.value ?? '',
+    };
+
+    submitButton && (submitButton.disabled = true);
+    const originalText = submitButton?.textContent;
+    if (submitButton) submitButton.textContent = 'Guardando...';
+
+    try {
+      const response = await fetch('/api/admin/consultas', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus(data.error ?? 'No pudimos actualizar la consulta.', true);
+        return;
+      }
+      setStatus(data.message ?? 'Consulta actualizada.');
+    } catch (error) {
+      console.error(error);
+      setStatus('Error de conexión al guardar.', true);
+    } finally {
+      if (submitButton) submitButton.textContent = originalText ?? 'Guardar cambios';
+      if (submitButton) submitButton.disabled = false;
+    }
+  });
+</script>

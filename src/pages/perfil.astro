@@ -97,6 +97,15 @@ const fullName = patient
 
 const formatDateTime = (value: Date | null | undefined) =>
   value ? value.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : "Sin asignar";
+
+const cargoLabel =
+  user.worker?.cargo === "ADMIN"
+    ? "Administrador"
+    : user.worker?.cargo === "RECEPCION"
+      ? "Recepcion"
+      : user.worker?.cargo === "MEDICO"
+        ? "Medico"
+        : null;
 ---
 <Layout title="Mi perfil">
   <section class="bg-[#f4f1fb] py-10">
@@ -112,6 +121,20 @@ const formatDateTime = (value: Date | null | undefined) =>
             No encontramos datos personales asociados. Completa tu información en el centro de atención.
           </p>
         )}
+        {cargoLabel ? (
+          <p class="mt-1 text-white/80">
+            Cargo: <span class="font-semibold text-white">{cargoLabel}</span>
+            {user.worker?.cargo === "MEDICO" && (
+              <>
+                {" "}
+                · Especialidad:{" "}
+                <span class="font-semibold text-white">
+                  {user.worker?.specialtyName ?? "Sin asignar"}
+                </span>
+              </>
+            )}
+          </p>
+        ) : null}
       </header>
 
       <div class="grid gap-6 md:grid-cols-5">

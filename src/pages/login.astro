@@ -1,7 +1,17 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { getSessionFromToken, SESSION_COOKIE_NAME } from "../utils/session";
 
 const title = "Iniciar sesion";
+
+const token = Astro.cookies.get(SESSION_COOKIE_NAME)?.value;
+
+if (token) {
+  const session = await getSessionFromToken(token);
+  if (session) {
+    throw Astro.redirect("/");
+  }
+}
 ---
 <Layout title={title}>
   <section class="bg-gradient-to-b from-[#200934] via-[#2d1250] to-[#200934] py-12 md:py-20">

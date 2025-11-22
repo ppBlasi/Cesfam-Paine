@@ -48,7 +48,7 @@ const ensureDoctorSession = async (cookies: APIRoute["context"]["cookies"]) => {
   }
 
   const worker = await getWorkerByRut(session.usuario.rut);
-  if (!worker) {
+  if (!worker || worker.cargo !== "MEDICO" || !worker.id_especialidad) {
     return null;
   }
 

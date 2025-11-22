@@ -75,6 +75,13 @@ const patientFullName = [
 ]
   .filter(Boolean)
   .join(" ");
+
+const examenesCatalogo = worker.especialidad
+  ? await prisma.examenEspecialidad.findMany({
+      where: { id_especialidad: worker.especialidad.id_especialidad },
+      orderBy: { nombre_examen: "asc" },
+    })
+  : [];
 ---
 
 <Layout title="Consulta en curso">
@@ -192,8 +199,23 @@ const patientFullName = [
               maxlength="400"
               data-exams-field
               class="rounded-2xl border border-[#200934]/20 px-4 py-3 text-sm text-[#200934] focus:border-[#200934] focus:outline-none"
-              placeholder="Describe los exámenes solicitados (ej: hemograma completo, perfil lipídico, etc.)."
+              placeholder="Selecciona exámenes sugeridos o ingrésalos manualmente."
             ></textarea>
+            {examenesCatalogo.length > 0 ? (
+              <div class="mt-2 flex flex-wrap gap-2">
+                {examenesCatalogo.map((item) => (
+                  <button
+                    type="button"
+                    class="rounded-full bg-[#f4f1fb] px-3 py-1 text-xs font-semibold text-[#200934] transition hover:bg-[#e7def5]"
+                    data-exam-suggest={item.nombre_examen}
+                  >
+                    {item.nombre_examen}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p class="mt-1 text-xs text-[#200934]/60">No hay exámenes asociados a tu especialidad.</p>
+            )}
           </label>
 
           <div class="flex flex-wrap gap-3 text-sm font-semibold text-[#200934]">
@@ -283,6 +305,7 @@ const patientFullName = [
   const treatmentDoseInput = form?.querySelector("[data-treatment-dose]");
   const treatmentDurationInput = form?.querySelector("[data-treatment-duration]");
   const examsField = form?.querySelector("[data-exams-field]");
+  const examButtons = Array.from(form?.querySelectorAll("[data-exam-suggest]") ?? []);
   const feedback = form?.querySelector("[data-feedback]");
   const errorBox = form?.querySelector("[data-error]");
   const slotId = Number(form?.slotId.value);
@@ -305,6 +328,21 @@ const patientFullName = [
     }
     return result;
   };
+
+  examButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!examsField || !(examsField instanceof HTMLTextAreaElement)) return;
+      const exam = btn.getAttribute("data-exam-suggest") ?? "";
+      if (!exam) return;
+      const current = examsField.value.trim();
+      const exists = current
+        .split(",")
+        .map((v) => v.trim().toLowerCase())
+        .includes(exam.toLowerCase());
+      if (exists) return;
+      examsField.value = current ? `${current}, ${exam}` : exam;
+    });
+  });
 
   historyButton?.addEventListener("click", async () => {
     if (!historyModal || !historyContent) return;

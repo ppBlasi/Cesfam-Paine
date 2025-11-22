@@ -158,7 +158,8 @@ async function main() {
     await prisma.trabajador.update({
       where: { id_trabajador: adminTrabajadorExistente.id_trabajador },
       data: {
-        id_especialidad: adminEspecialidad.id_especialidad,
+        cargo: 'ADMIN',
+        id_especialidad: null,
         primer_nombre_trabajador: 'Administrador',
         segundo_nombre_trabajador: 'Sistema',
         apellido_p_trabajador: 'General',
@@ -181,9 +182,8 @@ async function main() {
         correo_trabajador: 'admin@cesfam.cl',
         direccion_trabajador: 'Oficina Central',
         estado_trabajador: 'Activo',
-        especialidad: {
-          connect: { id_especialidad: adminEspecialidad.id_especialidad },
-        },
+        cargo: 'ADMIN',
+        id_especialidad: null,
       },
     });
   }
@@ -202,6 +202,33 @@ async function main() {
     'id_especialidad',
   );
 
+  // Examenes por especialidad (excluyendo administracion/recepcion)
+  const examenesPorEspecialidad = {
+    'Medicina General': ['Hemograma completo', 'Perfil lipidico', 'Radiografia de torax'],
+    Pediatria: ['Hemograma pediatrico', 'Orina completa pediatrica', 'Panel viral respiratorio'],
+    Ginecologia: ['Papanicolaou', 'Ecografia transvaginal', 'Perfil hormonal femenino'],
+    Psiquiatria: ['Evaluacion psicometrica', 'Perfil toxicologico', 'Electroencefalograma'],
+    Enfermeria: ['Glucosa capilar', 'Electrocardiograma', 'Test de embarazo'],
+  };
+
+  const especialidadesClinicas = (await prisma.especialidad.findMany()).filter(
+    (esp) =>
+      !['Administracion', 'Recepcion'].includes(esp.nombre_especialidad) &&
+      Object.keys(examenesPorEspecialidad).includes(esp.nombre_especialidad),
+  );
+
+  for (const esp of especialidadesClinicas) {
+    const examenes = examenesPorEspecialidad[esp.nombre_especialidad] || [];
+    for (const nombre_examen of examenes) {
+      await ensureRecord(
+        prisma.examenEspecialidad,
+        { nombre_examen, id_especialidad: esp.id_especialidad },
+        { nombre_examen, id_especialidad: esp.id_especialidad },
+        'id_examen_especialidad',
+      );
+    }
+  }
+
   const nurseWorker = await prisma.trabajador.findFirst({
     where: { rut_trabajador: '55555555-5' },
   });
@@ -210,6 +237,7 @@ async function main() {
     await prisma.trabajador.update({
       where: { id_trabajador: nurseWorker.id_trabajador },
       data: {
+        cargo: 'MEDICO',
         id_especialidad: enfermeriaEspecialidad.id_especialidad,
         primer_nombre_trabajador: 'Enfermera',
         segundo_nombre_trabajador: 'Demo',
@@ -233,6 +261,7 @@ async function main() {
         correo_trabajador: 'enfermeria@cesfam.cl',
         direccion_trabajador: 'Modulo Enfermeria',
         estado_trabajador: 'Activo',
+        cargo: 'MEDICO',
         especialidad: {
           connect: { id_especialidad: enfermeriaEspecialidad.id_especialidad },
         },
@@ -248,7 +277,8 @@ async function main() {
     await prisma.trabajador.update({
       where: { id_trabajador: receptionWorker.id_trabajador },
       data: {
-        id_especialidad: recepcionEspecialidad.id_especialidad,
+        cargo: 'RECEPCION',
+        id_especialidad: null,
         primer_nombre_trabajador: 'Recepcionista',
         segundo_nombre_trabajador: 'Demo',
         apellido_p_trabajador: 'Equipo',
@@ -271,9 +301,8 @@ async function main() {
         correo_trabajador: 'recepcion@cesfam.cl',
         direccion_trabajador: 'Modulo Recepcion',
         estado_trabajador: 'Activo',
-        especialidad: {
-          connect: { id_especialidad: recepcionEspecialidad.id_especialidad },
-        },
+        cargo: 'RECEPCION',
+        id_especialidad: null,
       },
     });
   }

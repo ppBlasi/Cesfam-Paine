@@ -21,6 +21,9 @@ const jsonResponse = (status: number, payload: unknown) =>
 const sanitizeString = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 
+const ALLOWED_CARGOS = ["ADMIN", "RECEPCION", "MEDICO"];
+const isValidCargo = (cargo: string) => ALLOWED_CARGOS.includes(cargo);
+
 export const POST: APIRoute = async ({ request, cookies }) => {
   const token = cookies.get(SESSION_COOKIE_NAME)?.value;
 
@@ -67,6 +70,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   );
   const estado =
     sanitizeString((payload as Record<string, unknown>).estado) || "Activo";
+  const cargoRaw = sanitizeString((payload as Record<string, unknown>).cargo).toUpperCase();
+  const cargo = cargoRaw || "";
   const especialidadIdValue = (payload as Record<string, unknown>)
     .especialidadId;
 
@@ -78,24 +83,34 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     !correo ||
     !celular ||
     !direccion ||
-    especialidadIdValue === undefined
+    !cargo
   ) {
     return jsonResponse(400, {
       error:
-        "Faltan datos obligatorios. Verifica RUT, nombres, apellidos, especialidad y datos de contacto.",
+        "Faltan datos obligatorios. Verifica RUT, nombres, apellidos, cargo y datos de contacto.",
     });
   }
 
-  const especialidadId = Number(especialidadIdValue);
-
-  if (!Number.isInteger(especialidadId) || especialidadId <= 0) {
-    return jsonResponse(400, { error: "Especialidad invalida." });
+  if (!isValidCargo(cargo)) {
+    return jsonResponse(400, {
+      error: "Cargo invalido. Debes seleccionar admin, recepcion o medico.",
+    });
   }
 
   const normalizedRut = normalizeRut(rut);
 
   if (!normalizedRut || normalizedRut.length < 3 || !normalizedRut.includes("-")) {
     return jsonResponse(400, { error: "RUT invalido." });
+  }
+
+  let especialidadId: number | null = null;
+
+  if (cargo === "MEDICO") {
+    const parsedEspecialidadId = Number(especialidadIdValue);
+    if (!Number.isInteger(parsedEspecialidadId) || parsedEspecialidadId <= 0) {
+      return jsonResponse(400, { error: "Debes seleccionar la especialidad para medicos." });
+    }
+    especialidadId = parsedEspecialidadId;
   }
 
   const existingUser = await prisma.usuario.findUnique({
@@ -119,13 +134,18 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     });
   }
 
-  const especialidad = await prisma.especialidad.findUnique({
-    where: { id_especialidad: especialidadId },
-    select: { id_especialidad: true, nombre_especialidad: true },
-  });
+  let especialidad: { id_especialidad: number; nombre_especialidad: string } | null = null;
+  if (cargo === "MEDICO") {
+    const especialidadRecord = await prisma.especialidad.findUnique({
+      where: { id_especialidad: especialidadId! },
+      select: { id_especialidad: true, nombre_especialidad: true },
+    });
 
-  if (!especialidad) {
-    return jsonResponse(404, { error: "Especialidad no encontrada." });
+    if (!especialidadRecord) {
+      return jsonResponse(404, { error: "Especialidad no encontrada." });
+    }
+
+    especialidad = especialidadRecord;
   }
 
   const primerNombreToken = primerNombre.split(/\s+/)[0]?.toLowerCase() ?? "";
@@ -161,7 +181,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
           correo_trabajador: correo,
           direccion_trabajador: direccion,
           estado_trabajador: estado,
-          id_especialidad: especialidad.id_especialidad,
+          cargo,
+          id_especialidad: cargo === "MEDICO" ? especialidad?.id_especialidad ?? null : null,
         },
         include: {
           especialidad: {
@@ -186,6 +207,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         }`.trim(),
         apellidos: `${createdWorker.apellido_p_trabajador} ${createdWorker.apellido_m_trabajador}`,
         rut: createdWorker.rut_trabajador,
+        cargo: createdWorker.cargo,
         especialidad: createdWorker.especialidad?.nombre_especialidad ?? null,
         estado: createdWorker.estado_trabajador,
       },
@@ -247,6 +269,15 @@ export const PATCH: APIRoute = async ({ request, cookies }) => {
     return jsonResponse(400, { error: "Estado solicitado no valido." });
   }
 
+  const currentWorker = await prisma.trabajador.findUnique({
+    where: { id_trabajador: trabajadorId },
+    select: { cargo: true, id_especialidad: true },
+  });
+
+  if (!currentWorker) {
+    return jsonResponse(404, { error: "Trabajador no encontrado." });
+  }
+
   try {
     const updatedWorker = await prisma.$transaction(async (tx) => {
       const worker = await tx.trabajador.update({
@@ -285,6 +316,7 @@ export const PATCH: APIRoute = async ({ request, cookies }) => {
         id: updatedWorker.id_trabajador,
         rut: updatedWorker.rut_trabajador,
         estado: updatedWorker.estado_trabajador,
+        cargo: updatedWorker.cargo,
         especialidad: updatedWorker.especialidad?.nombre_especialidad ?? "Sin asignar",
       },
     });
@@ -335,6 +367,15 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
     return jsonResponse(400, { error: "Trabajador invalido." });
   }
 
+  const currentWorker = await prisma.trabajador.findUnique({
+    where: { id_trabajador: trabajadorId },
+    select: { cargo: true, id_especialidad: true },
+  });
+
+  if (!currentWorker) {
+    return jsonResponse(404, { error: "Trabajador no encontrado." });
+  }
+
   const body = payload as Record<string, unknown>;
 
   const primerNombre = sanitizeString(body.primerNombre);
@@ -345,6 +386,7 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
   const celular = sanitizeString(body.celular);
   const direccion = sanitizeString(body.direccion);
   const estado = sanitizeString(body.estado);
+  const cargoRaw = sanitizeString(body.cargo).toUpperCase();
 
   const especialidadValue = body.especialidadId;
   let especialidadId: number | null | undefined = undefined;
@@ -417,6 +459,18 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
     data.estado_trabajador = estado;
   }
 
+  if (hasField("cargo")) {
+    if (!cargoRaw) {
+      return jsonResponse(400, { error: "El cargo es obligatorio." });
+    }
+    if (!isValidCargo(cargoRaw)) {
+      return jsonResponse(400, {
+        error: "Cargo invalido. Usa admin, recepcion o medico.",
+      });
+    }
+    data.cargo = cargoRaw;
+  }
+
   if (especialidadId !== undefined) {
     if (especialidadId === null) {
       data.id_especialidad = null;
@@ -432,6 +486,20 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
 
       data.id_especialidad = especialidad.id_especialidad;
     }
+  }
+
+  const finalCargo = hasField("cargo") ? cargoRaw : currentWorker.cargo;
+  const finalEspecialidad =
+    especialidadId !== undefined ? especialidadId : currentWorker.id_especialidad;
+
+  if (finalCargo !== "MEDICO") {
+    data.id_especialidad = null;
+  }
+
+  if (finalCargo === "MEDICO" && !finalEspecialidad) {
+    return jsonResponse(400, {
+      error: "Los medicos deben contar con una especialidad asignada.",
+    });
   }
 
   if (Object.keys(data).length === 0) {
@@ -464,6 +532,7 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
         celular: updatedWorker.celular_trabajador,
         direccion: updatedWorker.direccion_trabajador,
         estado: updatedWorker.estado_trabajador,
+        cargo: updatedWorker.cargo,
         especialidad: updatedWorker.especialidad?.nombre_especialidad ?? "Sin asignar",
       },
     });

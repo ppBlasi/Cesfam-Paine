@@ -7,7 +7,11 @@ import {
   SESSION_COOKIE_NAME,
   getSessionFromToken,
 } from "../../../utils/session";
-import { ADMIN_SPECIALTY_NAME, isAdminByRut } from "../../../utils/admin";
+import {
+  ADMIN_CARGO,
+  ADMIN_SPECIALTY_NAME,
+  isAdminByRut,
+} from "../../../utils/admin";
 
 const jsonResponse = (status: number, payload: unknown) =>
   new Response(JSON.stringify(payload), {
@@ -146,6 +150,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     where: { id_trabajador: trabajadorId },
     select: {
       id_trabajador: true,
+      cargo: true,
       especialidad: {
         select: { nombre_especialidad: true },
       },
@@ -156,9 +161,13 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return jsonResponse(404, { error: "Trabajador no encontrado." });
   }
 
-  if (worker.especialidad?.nombre_especialidad === ADMIN_SPECIALTY_NAME) {
+  if (
+    worker.cargo === ADMIN_CARGO ||
+    worker.especialidad?.nombre_especialidad === ADMIN_SPECIALTY_NAME ||
+    worker.cargo !== "MEDICO"
+  ) {
     return jsonResponse(400, {
-      error: "No puedes asignar horarios al personal administrador.",
+      error: "Solo se pueden asignar horarios a medicos.",
     });
   }
 
@@ -244,14 +253,8 @@ export const GET: APIRoute = async ({ request, cookies }) => {
         : {}),
       fecha: { gte: fromDate, lte: toDate },
       trabajador: {
-        OR: [
-          { especialidad: { is: null } },
-          {
-            especialidad: {
-              is: { nombre_especialidad: { not: ADMIN_SPECIALTY_NAME } },
-            },
-          },
-        ],
+        cargo: "MEDICO",
+        id_especialidad: { not: null },
       },
     },
     orderBy: { fecha: "asc" },

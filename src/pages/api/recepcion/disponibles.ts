@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import type { APIRoute } from "astro";
 import { prisma } from "../../../lib/prisma";
 import { SESSION_COOKIE_NAME, getSessionFromToken } from "../../../utils/session";
-import { getWorkerByRut } from "../../../utils/admin";
+import { getWorkerByRut, ADMIN_CARGO } from "../../../utils/admin";
 
 const jsonResponse = (status: number, payload: unknown) =>
   new Response(JSON.stringify(payload), {
@@ -40,7 +40,7 @@ const ensureReceptionSession = async (cookies: APIRoute["context"]["cookies"]) =
 
   const worker = await getWorkerByRut(session.usuario.rut);
 
-  if (!worker || worker.especialidad?.nombre_especialidad !== "Recepcion") {
+  if (!worker || (worker.cargo !== "RECEPCION" && worker.cargo !== ADMIN_CARGO)) {
     return null;
   }
 
@@ -79,6 +79,8 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       },
       trabajador: {
         estado_trabajador: "Activo",
+        cargo: "MEDICO",
+        id_especialidad: { not: null },
       },
     },
     orderBy: { fecha: "asc" },

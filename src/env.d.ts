@@ -20,6 +20,7 @@ declare namespace App {
         | {
             id: number;
             estado: string;
+            cargo: string;
             specialtyId: number | null;
             specialtyName: string | null;
           }

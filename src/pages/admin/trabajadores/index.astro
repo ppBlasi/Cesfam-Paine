@@ -1,0 +1,275 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import { prisma } from "../../../lib/prisma";
+
+const user = Astro.locals.user;
+
+if (!user?.isAdmin) {
+  return Astro.redirect("/");
+}
+
+const especialidades = await prisma.especialidad.findMany({
+  orderBy: { nombre_especialidad: "asc" },
+});
+---
+
+<Layout title="Gestion de trabajadores">
+  <section class="bg-gradient-to-b from-[#200934] via-[#2d1250] to-[#200934] py-12">
+    <div class="mx-auto flex max-w-5xl flex-col gap-10 px-4 sm:px-6">
+      <header class="text-white">
+        <p class="text-sm uppercase tracking-[0.35em] text-white/60">Equipo</p>
+        <h1 class="mt-3 text-3xl font-bold sm:text-4xl">Administrar trabajadores</h1>
+        <p class="mt-2 max-w-2xl text-white/80">
+          Registra nuevos profesionales y gestiona sus accesos a la plataforma. Las credenciales iniciales se generan de forma automatica.
+        </p>
+      </header>
+
+      <section class="grid gap-6 lg:grid-cols-5">
+        <article class="lg:col-span-3 rounded-3xl bg-white p-6 shadow-xl">
+          <h2 class="text-xl font-semibold text-[#200934]">Nuevo trabajador</h2>
+          <p class="mt-1 text-sm text-[#200934]/70">
+            La contrasena inicial seguira el formato <strong>RUT + primer nombre en minusculas</strong>. Se recomienda informar al profesional y pedir cambio al iniciar sesion.
+          </p>
+          <form id="create-worker-form" class="mt-5 grid gap-4 md:grid-cols-2" autocomplete="off">
+            <div class="md:col-span-2">
+              <label for="rut" class="mb-2 block text-sm font-semibold text-[#200934]">RUT</label>
+              <input
+                id="rut"
+                name="rut"
+                type="text"
+                required
+                placeholder="12.345.678-9"
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+              />
+            </div>
+
+            <div>
+              <label for="primerNombre" class="mb-2 block text-sm font-semibold text-[#200934]">Primer nombre</label>
+              <input
+                id="primerNombre"
+                name="primerNombre"
+                type="text"
+                required
+                placeholder="Ana"
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+              />
+            </div>
+
+            <div>
+              <label for="segundoNombre" class="mb-2 block text-sm font-semibold text-[#200934]">Segundo nombre</label>
+              <input
+                id="segundoNombre"
+                name="segundoNombre"
+                type="text"
+                placeholder="Opcional"
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+              />
+            </div>
+
+            <div>
+              <label for="apellidoPaterno" class="mb-2 block text-sm font-semibold text-[#200934]">Apellido paterno</label>
+              <input
+                id="apellidoPaterno"
+                name="apellidoPaterno"
+                type="text"
+                required
+                placeholder="Gonzalez"
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+              />
+            </div>
+
+            <div>
+              <label for="apellidoMaterno" class="mb-2 block text-sm font-semibold text-[#200934]">Apellido materno</label>
+              <input
+                id="apellidoMaterno"
+                name="apellidoMaterno"
+                type="text"
+                required
+                placeholder="Muñoz"
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+              />
+            </div>
+
+            <div>
+              <label for="correo" class="mb-2 block text-sm font-semibold text-[#200934]">Correo</label>
+              <input
+                id="correo"
+                name="correo"
+                type="email"
+                required
+                placeholder="correo@ejemplo.cl"
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+              />
+            </div>
+
+            <div>
+              <label for="celular" class="mb-2 block text-sm font-semibold text-[#200934]">Celular</label>
+              <input
+                id="celular"
+                name="celular"
+                type="tel"
+                required
+                placeholder="+56 9 0000 0000"
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+              />
+            </div>
+
+            <div class="md:col-span-2">
+              <label for="direccion" class="mb-2 block text-sm font-semibold text-[#200934]">Direccion</label>
+              <input
+                id="direccion"
+                name="direccion"
+                type="text"
+                required
+                placeholder="Calle 123, Ciudad"
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+              />
+            </div>
+
+            <div>
+              <label for="cargo" class="mb-2 block text-sm font-semibold text-[#200934]">Cargo</label>
+              <select
+                id="cargo"
+                name="cargo"
+                required
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+              >
+                <option value="" selected disabled>Selecciona cargo</option>
+                <option value="ADMIN">Administrador</option>
+                <option value="RECEPCION">Recepcion</option>
+                <option value="MEDICO">Medico</option>
+              </select>
+            </div>
+
+            <div class="md:col-span-2 hidden" data-specialty-field>
+              <label for="especialidadId" class="mb-2 block text-sm font-semibold text-[#200934]">Especialidad del medico</label>
+              <select
+                id="especialidadId"
+                name="especialidadId"
+                required
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+              >
+                <option value="" selected disabled>Selecciona una especialidad</option>
+                {especialidades.map((especialidad) => (
+                  <option value={especialidad.id_especialidad}>{especialidad.nombre_especialidad}</option>
+                ))}
+              </select>
+            </div>
+
+            <div class="md:col-span-2 flex flex-col gap-3">
+              <button
+                id="create-worker-submit"
+                type="submit"
+                class="rounded-2xl bg-[#321355] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#200934] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355] disabled:opacity-60"
+              >
+                Registrar trabajador
+              </button>
+              <p
+                id="create-worker-status"
+                class="min-h-[1.25rem] text-sm font-medium text-[#200934]"
+                aria-live="polite"
+              ></p>
+            </div>
+          </form>
+        </article>
+
+        <article class="lg:col-span-2 rounded-3xl bg-white p-6 shadow-xl flex flex-col justify-between">
+          <div>
+            <h2 class="text-xl font-semibold text-[#200934]">Gestionar listado</h2>
+            <p class="mt-1 text-sm text-[#200934]/70">
+              Consulta, filtra y edita trabajadores desde la pagina dedicada.
+            </p>
+          </div>
+          <a
+            href="/admin/trabajadores/listado"
+            class="mt-6 inline-flex items-center justify-center rounded-2xl bg-[#321355] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#200934] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355]"
+          >
+            Abrir listado y edicion
+          </a>
+        </article>
+      </section>
+    </div>
+  </section>
+</Layout>
+
+<script type="module">
+  const form = document.querySelector('#create-worker-form');
+  const statusField = document.querySelector('#create-worker-status');
+  const submitButton = document.querySelector('#create-worker-submit');
+  const cargoSelect = document.querySelector('#cargo');
+  const specialtyWrapper = document.querySelector('[data-specialty-field]');
+  const specialtySelect = document.querySelector('#especialidadId');
+
+  const toJSON = (formData) => {
+    const payload = {};
+    formData.forEach((value, key) => {
+      payload[key] = typeof value === 'string' ? value.trim() : value;
+    });
+    return payload;
+  };
+
+  const toggleSpecialtyField = (cargoValue, wrapper, select, resetWhenHidden = false) => {
+    const show = (cargoValue ?? '').toUpperCase() === 'MEDICO';
+    if (wrapper) {
+      wrapper.classList.toggle('hidden', !show);
+    }
+    if (select) {
+      select.toggleAttribute('required', show);
+      if (!show && resetWhenHidden) {
+        select.value = '';
+      }
+    }
+  };
+
+  toggleSpecialtyField(cargoSelect?.value ?? '', specialtyWrapper, specialtySelect, true);
+
+  cargoSelect?.addEventListener('change', (event) => {
+    const value = event.target?.value ?? '';
+    toggleSpecialtyField(value, specialtyWrapper, specialtySelect, true);
+  });
+
+  if (form && statusField && submitButton) {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      statusField.textContent = '';
+
+      const payload = toJSON(new FormData(form));
+
+      submitButton.disabled = true;
+      const originalText = submitButton.textContent;
+      submitButton.textContent = 'Guardando...';
+
+      try {
+        const response = await fetch('/api/admin/trabajadores', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          statusField.textContent = data.error ?? 'No pudimos completar el registro.';
+          statusField.classList.remove('text-emerald-600');
+          statusField.classList.add('text-rose-600');
+          return;
+        }
+
+        statusField.textContent = `Trabajador creado. Contrasena inicial: ${data.initialPassword}`;
+        statusField.classList.remove('text-rose-600');
+        statusField.classList.add('text-emerald-600');
+        form.reset();
+        toggleSpecialtyField('', specialtyWrapper, specialtySelect, true);
+        setTimeout(() => window.location.reload(), 1200);
+      } catch (error) {
+        console.error(error);
+        statusField.textContent = 'Error de conexion. Intenta nuevamente.';
+        statusField.classList.remove('text-emerald-600');
+        statusField.classList.add('text-rose-600');
+      } finally {
+        submitButton.textContent = originalText;
+        submitButton.disabled = false;
+      }
+    });
+  }
+</script>
