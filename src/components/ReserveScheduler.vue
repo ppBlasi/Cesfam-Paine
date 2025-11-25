@@ -34,10 +34,21 @@
           CESFAM para recibir asistencia.
         </div>
 
-        <div
-          v-else
-          class="flex flex-col gap-6 lg:flex-row"
-        >
+        <div class="flex flex-col gap-4 rounded-3xl bg-white/5 p-4 shadow-inner">
+          <label class="text-sm font-semibold text-white" for="specialty">Especialidad</label>
+          <select
+            id="specialty"
+            class="w-full max-w-lg rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white shadow-sm outline-none transition hover:border-white/40 focus:border-white focus:ring-2 focus:ring-white/40 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="specialtyLocked"
+            v-model="selectedSpecialty"
+            @change="handleSpecialtyChange"
+          >
+            <option v-for="opt in specialtyOptions" :key="opt" :value="opt">{{ opt }}</option>
+          </select>
+          <p class="text-xs text-white/70">Selecciona una especialidad para ver el calendario.</p>
+        </div>
+
+        <div v-if="selectedSpecialty" class="flex flex-col gap-6 lg:flex-row">
           <div class="rounded-3xl bg-white/10 p-4 shadow-inner lg:max-w-sm">
             <VDatePicker
               v-model="selectedDate"
@@ -86,7 +97,7 @@
               Profesionales disponibles a las {{ selectedSlot.time }}
             </h4>
             <p class="text-sm text-[#200934]/70">
-              Selecciona a tu medico general y confirma la reserva. Solo se bloqueara la hora una vez confirmada.
+              Selecciona al medico disponible y confirma la reserva. Solo se bloqueara la hora una vez confirmada.
             </p>
 
             <div class="mt-4 grid gap-4 md:grid-cols-2">
@@ -101,22 +112,11 @@
                   Fecha: {{ new Date(entry.timestamp).toLocaleDateString("es-CL", { dateStyle: "medium" }) }}
                 </p>
 
-                <div class="mt-3 space-y-2 text-sm text-[#200934]/80">
-                  <label class="block text-xs font-semibold text-[#200934]">Motivo (opcional)</label>
-                  <textarea
-                    v-model="note"
-                    maxlength="240"
-                    rows="3"
-                    class="w-full rounded-2xl border border-[#200934]/15 px-3 py-2 text-sm text-[#200934] outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
-                    placeholder="Sintomas, observaciones u otra informacion relevante"
-                  ></textarea>
-                </div>
-
                 <button
                   type="button"
                   class="mt-3 w-full rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#200934] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355]"
                   :disabled="reserving"
-                  @click="reserve(entry)"
+                  @click="askForConfirmation(entry)"
                 >
                   {{ reserving ? "Reservando..." : "Reservar esta hora" }}
                 </button>
@@ -129,12 +129,54 @@
           </div>
         </transition>
       </template>
+
+      <transition name="fade">
+        <div v-if="showConfirm && pendingEntry" class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
+          <div class="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <p class="text-lg font-semibold text-[#200934]">¿Confirmar reserva?</p>
+            <p class="mt-2 text-sm text-[#200934]/80">
+              Estas seguro que quieres reservar esta hora:
+              <strong>{{ formattedSelectedDate }}</strong> a las <strong>{{ selectedSlot?.time }}</strong> con
+              <strong>{{ pendingEntry.doctorName }}</strong>.
+            </p>
+            <div class="mt-4 space-y-2 text-sm text-[#200934]/80">
+              <label class="block text-xs font-semibold text-[#200934]">Motivo (opcional)</label>
+              <textarea
+                v-model="note"
+                maxlength="240"
+                rows="3"
+                class="w-full rounded-2xl border border-[#200934]/15 px-3 py-2 text-sm text-[#200934] outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+                placeholder="Sintomas, observaciones u otra informacion relevante"
+              ></textarea>
+            </div>
+            <div class="mt-5 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                class="rounded-2xl px-4 py-2 text-sm font-semibold text-[#200934] transition hover:bg-[#f4f1fb]"
+                @click="closeConfirm"
+              >
+                No
+              </button>
+              <button
+                type="button"
+                class="rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#200934] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355]"
+                :disabled="reserving"
+                @click="reserve()"
+              >
+                {{ reserving ? "Reservando..." : "Si, reservar" }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
+
+const GENERAL_SPECIALTY = "Medicina General";
 
 const props = defineProps({
   patientName: {
@@ -149,12 +191,17 @@ const error = ref("");
 const successMessage = ref("");
 const note = ref("");
 const reserving = ref(false);
+const specialtyLocked = ref(false);
 
 const days = ref([]);
 const selectedDate = ref(null);
 const selectedSlot = ref(null);
 const minDate = ref(null);
 const maxDate = ref(null);
+const selectedSpecialty = ref(GENERAL_SPECIALTY);
+const specialties = ref([]);
+const showConfirm = ref(false);
+const pendingEntry = ref(null);
 
 const fetchAvailability = async () => {
   if (!props.patientName) {
@@ -168,12 +215,19 @@ const fetchAvailability = async () => {
       refreshing.value = true;
     }
     error.value = "";
-    const response = await fetch("/api/reservas/disponibles");
+    const query = new URLSearchParams();
+    query.set("specialty", selectedSpecialty.value || GENERAL_SPECIALTY);
+
+    const response = await fetch(`/api/reservas/disponibles?${query.toString()}`);
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
       throw new Error(data.error ?? "No pudimos cargar las horas disponibles.");
     }
     const data = await response.json();
+    const apiSpecialties = Array.isArray(data.specialties) ? data.specialties : [];
+    specialties.value = Array.from(new Set([GENERAL_SPECIALTY, ...apiSpecialties]));
+    selectedSpecialty.value = data.selectedSpecialty || selectedSpecialty.value || GENERAL_SPECIALTY;
+    specialtyLocked.value = selectedSpecialty.value !== GENERAL_SPECIALTY;
     days.value = Array.isArray(data.days) ? data.days : [];
     minDate.value = data.range?.from ? new Date(`${data.range.from}T00:00:00`) : null;
     maxDate.value = data.range?.to ? new Date(`${data.range.to}T00:00:00`) : null;
@@ -240,6 +294,12 @@ const formattedSelectedDate = computed(() => {
   return new Intl.DateTimeFormat("es-CL", { dateStyle: "full" }).format(new Date(`${selectedDateKey.value}T00:00:00`));
 });
 
+const specialtyOptions = computed(() => {
+  const options = specialties.value.length > 0 ? specialties.value : [GENERAL_SPECIALTY];
+  const unique = Array.from(new Set(options));
+  return [GENERAL_SPECIALTY, ...unique.filter((opt) => opt !== GENERAL_SPECIALTY)];
+});
+
 const selectSlot = (slot) => {
   selectedSlot.value = slot;
   note.value = "";
@@ -261,7 +321,19 @@ const slotButtonClass = (slot) => {
   return [base, "border-white/20 bg-white/10 hover:bg-white hover:text-[#200934]"];
 };
 
-const reserve = async (entry) => {
+const askForConfirmation = (entry) => {
+  pendingEntry.value = entry;
+  showConfirm.value = true;
+  successMessage.value = "";
+};
+
+const closeConfirm = () => {
+  pendingEntry.value = null;
+  showConfirm.value = false;
+};
+
+const reserve = async () => {
+  if (!pendingEntry.value) return;
   if (reserving.value) return;
   successMessage.value = "";
   reserving.value = true;
@@ -271,7 +343,7 @@ const reserve = async (entry) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        disponibilidadId: entry.disponibilidadId,
+        disponibilidadId: pendingEntry.value.disponibilidadId,
         nota: note.value,
       }),
     });
@@ -283,7 +355,12 @@ const reserve = async (entry) => {
     }
 
     successMessage.value = data.message ?? "Tu hora ha sido reservada.";
+    closeConfirm();
     await fetchAvailability();
+    if (selectedSpecialty.value !== GENERAL_SPECIALTY) {
+      specialtyLocked.value = true;
+    }
+    window.location.href = "/reserva/reserva#reserva-hora";
   } catch (err) {
     console.error(err);
     error.value =
@@ -295,6 +372,13 @@ const reserve = async (entry) => {
 
 const refresh = async () => {
   loading.value = days.value.length === 0;
+  await fetchAvailability();
+};
+
+const handleSpecialtyChange = async () => {
+  selectedSlot.value = null;
+  note.value = "";
+  successMessage.value = "";
   await fetchAvailability();
 };
 </script>

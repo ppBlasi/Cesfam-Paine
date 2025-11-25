@@ -8,85 +8,99 @@ if (!user?.isAdmin) {
   return Astro.redirect("/");
 }
 
-let consultas:
-  | {
-      id_consulta: number;
-      id_disponibilidad: number | null;
-      id_paciente: number | null;
-      resumen: string;
-      derivacion: string | null;
-      tratamiento: unknown;
-      orden_examenes: string | null;
-      created_at: Date | null;
-      updated_at: Date | null;
-      fecha_slot: Date | null;
-      estado_slot: string | null;
-      paciente: string | null;
-      trabajador: string | null;
-      especialidad: string | null;
-    }[]
-  | null = null;
+type ConsultaListado = {
+  id_consulta: number;
+  id_disponibilidad: number | null;
+  id_paciente: number | null;
+  resumen: string;
+  derivacion: string | null;
+  tratamiento: unknown;
+  orden_examenes: string | null;
+  created_at: Date | null;
+  updated_at: Date | null;
+  fecha_slot: Date | null;
+  estado_slot: string | null;
+  paciente: string | null;
+  trabajador: string | null;
+  especialidad: string | null;
+};
 
+let consultas: ConsultaListado[] | null = null;
 let loadError: string | null = null;
 
 try {
-  // Asegura la existencia de la tabla (algunos entornos no ejecutan la creación previa)
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS consulta_medica_slot (
-      id_consulta SERIAL PRIMARY KEY,
-      id_disponibilidad INTEGER UNIQUE,
-      id_paciente INTEGER,
-      resumen TEXT NOT NULL,
-      derivacion TEXT,
-      tratamiento JSONB,
-      orden_examenes TEXT,
-      created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-  // Garantiza columnas opcionales en entornos donde la tabla ya existía sin ellas
-  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS tratamiento JSONB;`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS orden_examenes TEXT;`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS derivacion TEXT;`);
+  const rows = await prisma.consultaMedicaSlot.findMany({
+    orderBy: [{ created_at: "desc" }, { id_consulta: "desc" }],
+    include: {
+      disponibilidad: {
+        select: {
+          fecha: true,
+          estado: true,
+          trabajador: {
+            select: {
+              primer_nombre_trabajador: true,
+              segundo_nombre_trabajador: true,
+              apellido_p_trabajador: true,
+              apellido_m_trabajador: true,
+              especialidad: { select: { nombre_especialidad: true } },
+            },
+          },
+        },
+      },
+      paciente: {
+        select: {
+          primer_nombre_paciente: true,
+          segundo_nombre_paciente: true,
+          apellido_p_paciente: true,
+          apellido_m_paciente: true,
+        },
+      },
+    },
+  });
 
-  const sql = `
-    SELECT
-      cms.id_consulta,
-      cms.id_disponibilidad,
-      cms.id_paciente,
-      cms.resumen,
-      cms.derivacion,
-      cms.tratamiento,
-      cms.orden_examenes,
-      cms.created_at,
-      cms.updated_at,
-      dt.fecha        AS fecha_slot,
-      dt.estado       AS estado_slot,
-      CONCAT_WS(' ',
-        p.primer_nombre_paciente,
-        p.segundo_nombre_paciente,
-        p.apellido_p_paciente,
-        p.apellido_m_paciente
-      )               AS paciente,
-      CONCAT_WS(' ',
-        t.primer_nombre_trabajador,
-        t.segundo_nombre_trabajador,
-        t.apellido_p_trabajador,
-        t.apellido_m_trabajador
-      )               AS trabajador,
-      e.nombre_especialidad AS especialidad
-    FROM consulta_medica_slot cms
-    LEFT JOIN disponibilidad_trabajador dt ON dt.id_disponibilidad = cms.id_disponibilidad
-    LEFT JOIN "Paciente" p ON p.id_paciente = cms.id_paciente
-    LEFT JOIN "Trabajador" t ON t.id_trabajador = dt.id_trabajador
-    LEFT JOIN "Especialidad" e ON e.id_especialidad = t.id_especialidad
-    ORDER BY cms.created_at DESC NULLS LAST, cms.id_consulta DESC
-  `;
+  consultas = rows.map((row): ConsultaListado => {
+    const nombrePaciente =
+      [
+        row.paciente?.primer_nombre_paciente,
+        row.paciente?.segundo_nombre_paciente,
+        row.paciente?.apellido_p_paciente,
+        row.paciente?.apellido_m_paciente,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || null;
 
-  consultas = (await prisma.$queryRawUnsafe(sql)) as any[];
+    const nombreTrabajador =
+      [
+        row.disponibilidad?.trabajador?.primer_nombre_trabajador,
+        row.disponibilidad?.trabajador?.segundo_nombre_trabajador,
+        row.disponibilidad?.trabajador?.apellido_p_trabajador,
+        row.disponibilidad?.trabajador?.apellido_m_trabajador,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || null;
+
+    return {
+      id_consulta: row.id_consulta,
+      id_disponibilidad: row.id_disponibilidad,
+      id_paciente: row.id_paciente,
+      resumen: row.resumen,
+      derivacion: row.derivacion,
+      tratamiento: row.tratamiento,
+      orden_examenes: row.orden_examenes,
+      created_at: row.created_at ?? null,
+      updated_at: row.updated_at ?? null,
+      fecha_slot: row.disponibilidad?.fecha ?? null,
+      estado_slot: row.disponibilidad?.estado ?? null,
+      paciente: nombrePaciente,
+      trabajador: nombreTrabajador,
+      especialidad: row.disponibilidad?.trabajador?.especialidad?.nombre_especialidad ?? null,
+    };
+  });
 } catch (error) {
   console.error("admin consultas list error", error);
-  loadError = "No pudimos cargar las consultas. Intenta más tarde.";
+  loadError = "No pudimos cargar las consultas. Intenta mas tarde.";
   consultas = [];
 }
 
@@ -102,14 +116,14 @@ const formatDateTime = (value: Date | null | undefined) =>
           <p class="text-sm uppercase tracking-[0.35em] text-white/70">Equipo</p>
           <h1 class="mt-3 text-3xl font-bold sm:text-4xl">Consultas realizadas</h1>
           <p class="mt-2 max-w-3xl text-white/80">
-            Revisa todas las consultas médicas registradas. Selecciona una para ver y editar su detalle.
+            Revisa todas las consultas medicas registradas. Selecciona una para ver y editar su detalle.
           </p>
         </div>
         <a
           href="/admin"
           class="inline-flex items-center rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
         >
-          ← Volver al panel
+          Volver al panel
         </a>
       </header>
 
@@ -156,7 +170,7 @@ const formatDateTime = (value: Date | null | undefined) =>
           </div>
         ) : (
           <div class="rounded-2xl border border-dashed border-[#200934]/20 bg-[#faf7ff] px-4 py-6 text-sm text-[#200934]/70">
-            Aún no se registran consultas médicas o la tabla no existe.
+            Aun no se registran consultas medicas.
           </div>
         )}
       </article>

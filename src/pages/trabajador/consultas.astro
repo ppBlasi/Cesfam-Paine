@@ -37,16 +37,39 @@ if (!isDoctor && !user.isAdmin) {
 
 const startOfToday = new Date();
 startOfToday.setHours(0, 0, 0, 0);
-const now = new Date();
-
-await prisma.disponibilidadTrabajador.updateMany({
+const overdueSlots = await prisma.disponibilidadTrabajador.findMany({
   where: {
     id_trabajador: worker.id_trabajador,
-    fecha: { lt: now },
+    fecha: { lt: startOfToday },
     estado: { in: ["reservado", "confirmado", "ingresado", "en_curso"] },
   },
-  data: { estado: "no_se_presenta" },
+  select: { id_disponibilidad: true },
 });
+
+// Solo marcamos inasistencias cuando el dia termino y no existe registro de consulta medica.
+if (overdueSlots.length > 0) {
+  const slotIds = overdueSlots.map((slot) => slot.id_disponibilidad);
+  let slotsWithConsult = new Set<number>();
+
+  try {
+    const recordedConsults =
+      (await prisma.$queryRawUnsafe<{ id_disponibilidad: number }[]>(
+        `SELECT id_disponibilidad FROM consulta_medica_slot WHERE id_disponibilidad IN (${slotIds.join(",")})`,
+      )) ?? [];
+    slotsWithConsult = new Set(recordedConsults.map((row) => Number(row.id_disponibilidad)));
+  } catch (error) {
+    console.warn("No se pudo verificar consultas registradas para cupos vencidos.", error);
+  }
+
+  const slotsWithoutConsult = slotIds.filter((slotId) => !slotsWithConsult.has(slotId));
+
+  if (slotsWithoutConsult.length > 0) {
+    await prisma.disponibilidadTrabajador.updateMany({
+      where: { id_disponibilidad: { in: slotsWithoutConsult } },
+      data: { estado: "no_se_presenta" },
+    });
+  }
+}
 
 const upcomingConsultations = await prisma.disponibilidadTrabajador.findMany({
   where: {

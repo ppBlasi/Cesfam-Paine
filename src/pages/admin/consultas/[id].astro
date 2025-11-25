@@ -14,69 +14,94 @@ if (!Number.isInteger(idParam) || idParam <= 0) {
   return Astro.redirect("/admin/consultas");
 }
 
-let consulta:
-  | {
-      id_consulta: number;
-      id_disponibilidad: number | null;
-      id_paciente: number | null;
-      resumen: string;
-      derivacion: string | null;
-      tratamiento: unknown;
-      orden_examenes: string | null;
-      created_at: Date | null;
-      updated_at: Date | null;
-      fecha_slot: Date | null;
-      estado_slot: string | null;
-      paciente: string | null;
-      trabajador: string | null;
-      especialidad: string | null;
-    }
-  | null = null;
+type ConsultaDetalle = {
+  id_consulta: number;
+  id_disponibilidad: number | null;
+  id_paciente: number | null;
+  resumen: string;
+  derivacion: string | null;
+  tratamiento: unknown;
+  orden_examenes: string | null;
+  created_at: Date | null;
+  updated_at: Date | null;
+  fecha_slot: Date | null;
+  estado_slot: string | null;
+  paciente: string | null;
+  trabajador: string | null;
+  especialidad: string | null;
+};
 
-try {
-  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS tratamiento JSONB;`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS orden_examenes TEXT;`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS derivacion TEXT;`);
+const obtenerConsulta = async (consultaId: number): Promise<ConsultaDetalle | null> => {
+  try {
+    const row = await prisma.consultaMedicaSlot.findFirst({
+      where: { id_consulta: consultaId },
+      include: {
+        disponibilidad: {
+          select: {
+            fecha: true,
+            estado: true,
+            trabajador: {
+              select: {
+                primer_nombre_trabajador: true,
+                segundo_nombre_trabajador: true,
+                apellido_p_trabajador: true,
+                apellido_m_trabajador: true,
+                especialidad: { select: { nombre_especialidad: true } },
+              },
+            },
+          },
+        },
+        paciente: {
+          select: {
+            primer_nombre_paciente: true,
+            segundo_nombre_paciente: true,
+            apellido_p_paciente: true,
+            apellido_m_paciente: true,
+          },
+        },
+      },
+    });
 
-  const rows = (await prisma.$queryRaw`
-    SELECT
-      cms.id_consulta,
-      cms.id_disponibilidad,
-      cms.id_paciente,
-      cms.resumen,
-      cms.derivacion,
-      cms.tratamiento,
-      cms.orden_examenes,
-      cms.created_at,
-      cms.updated_at,
-      dt.fecha        AS fecha_slot,
-      dt.estado       AS estado_slot,
-      CONCAT_WS(' ',
-        p.primer_nombre_paciente,
-        p.segundo_nombre_paciente,
-        p.apellido_p_paciente,
-        p.apellido_m_paciente
-      )               AS paciente,
-      CONCAT_WS(' ',
-        t.primer_nombre_trabajador,
-        t.segundo_nombre_trabajador,
-        t.apellido_p_trabajador,
-        t.apellido_m_trabajador
-      )               AS trabajador,
-      e.nombre_especialidad AS especialidad
-    FROM consulta_medica_slot cms
-    LEFT JOIN disponibilidad_trabajador dt ON dt.id_disponibilidad = cms.id_disponibilidad
-    LEFT JOIN "Paciente" p ON p.id_paciente = cms.id_paciente
-    LEFT JOIN "Trabajador" t ON t.id_trabajador = dt.id_trabajador
-    LEFT JOIN "Especialidad" e ON e.id_especialidad = t.id_especialidad
-    WHERE cms.id_consulta = ${idParam}
-    LIMIT 1
-  `) as any[];
-  consulta = rows[0] ?? null;
-} catch (error) {
-  console.error("admin consulta detail error", error);
-  consulta = null;
-}
+    if (!row) return null;
+
+    const nombrePaciente = [row.paciente?.primer_nombre_paciente, row.paciente?.segundo_nombre_paciente, row.paciente?.apellido_p_paciente, row.paciente?.apellido_m_paciente]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || null;
+
+    const nombreTrabajador = [
+      row.disponibilidad?.trabajador?.primer_nombre_trabajador,
+      row.disponibilidad?.trabajador?.segundo_nombre_trabajador,
+      row.disponibilidad?.trabajador?.apellido_p_trabajador,
+      row.disponibilidad?.trabajador?.apellido_m_trabajador,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || null;
+
+    return {
+      id_consulta: row.id_consulta,
+      id_disponibilidad: row.id_disponibilidad,
+      id_paciente: row.id_paciente,
+      resumen: row.resumen,
+      derivacion: row.derivacion,
+      tratamiento: row.tratamiento,
+      orden_examenes: row.orden_examenes,
+      created_at: row.created_at ?? null,
+      updated_at: row.updated_at ?? null,
+      fecha_slot: row.disponibilidad?.fecha ?? null,
+      estado_slot: row.disponibilidad?.estado ?? null,
+      paciente: nombrePaciente,
+      trabajador: nombreTrabajador,
+      especialidad: row.disponibilidad?.trabajador?.especialidad?.nombre_especialidad ?? null,
+    };
+  } catch (error) {
+    console.error("admin consulta detail error", error);
+    return null;
+  }
+};
+
+const consulta = await obtenerConsulta(idParam);
 
 if (!consulta) {
   return Astro.redirect("/admin/consultas");
@@ -99,12 +124,19 @@ const hasCustomDerivacion =
     (opt) => opt.nombre_especialidad.toLowerCase() === consulta.derivacion?.toLowerCase(),
   );
 
-const examenesCatalogo = (prisma as any).examenEspecialidad?.findMany
+type ExamenEspecialidadItem = {
+  nombre_examen: string;
+  especialidad?: { nombre_especialidad: string } | null;
+};
+
+const examenesCatalogo: ExamenEspecialidadItem[] = (prisma as any).examenEspecialidad?.findMany
   ? await (prisma as any).examenEspecialidad.findMany({
       orderBy: [{ id_especialidad: "asc" }, { nombre_examen: "asc" }],
       include: { especialidad: { select: { nombre_especialidad: true } } },
-    })
+    }) as ExamenEspecialidadItem[]
   : [];
+
+const examenesDatalist = Array.from(new Set(examenesCatalogo.map((item) => item.nombre_examen))).sort();
 ---
 
 <Layout title={`Consulta #${consulta.id_consulta}`}>
@@ -122,7 +154,7 @@ const examenesCatalogo = (prisma as any).examenEspecialidad?.findMany
           href="/admin/consultas"
           class="inline-flex items-center rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white"
         >
-          ← Volver al listado
+          Volver al listado
         </a>
       </header>
 
@@ -195,15 +227,22 @@ const examenesCatalogo = (prisma as any).examenEspecialidad?.findMany
 
             <div>
               <label class="mb-2 block text-sm font-semibold text-[#200934]" for="ordenExamenes">Órdenes de examen</label>
-              <textarea
+              <input
                 id="ordenExamenes"
                 name="ordenExamenes"
+                type="text"
+                list="ordenes-examenes-list"
                 class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-sm text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
-                rows="2"
                 placeholder="Ej: Hemograma, perfil lipídico"
-              >{consulta.orden_examenes ?? ""}</textarea>
+                value={consulta.orden_examenes ?? ""}
+              />
+              <datalist id="ordenes-examenes-list">
+                {examenesDatalist.map((nombre) => (
+                  <option value={nombre}></option>
+                ))}
+              </datalist>
+              <p class="mt-1 text-xs text-[#200934]/60">Sugiere exámenes del catálogo; puedes escribir valores separados por comas.</p>
             </div>
-
             <div class="rounded-2xl border border-[#200934]/10 bg-[#f4f1fb] px-4 py-3">
               <p class="text-sm font-semibold text-[#200934]">Catálogo de exámenes</p>
               <p class="text-xs text-[#200934]/60">Selecciona para agregar al campo de órdenes.</p>
@@ -215,7 +254,7 @@ const examenesCatalogo = (prisma as any).examenEspecialidad?.findMany
                     data-exam-suggest={item.nombre_examen}
                     data-exam-specialty={item.especialidad?.nombre_especialidad ?? ""}
                   >
-                    {item.nombre_examen} • {item.especialidad?.nombre_especialidad ?? "Sin especialidad"}
+                    {item.nombre_examen} - {item.especialidad?.nombre_especialidad ?? "Sin especialidad"}
                   </button>
                 ))}
               </div>
@@ -258,7 +297,7 @@ const examenesCatalogo = (prisma as any).examenEspecialidad?.findMany
 
   catalogButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
-      if (!ordenExamenesInput || !(ordenExamenesInput instanceof HTMLTextAreaElement)) return;
+      if (!ordenExamenesInput || !(ordenExamenesInput instanceof HTMLInputElement)) return;
       const exam = btn.getAttribute('data-exam-suggest') ?? '';
       if (!exam) return;
       const current = ordenExamenesInput.value.trim();
@@ -274,7 +313,7 @@ const examenesCatalogo = (prisma as any).examenEspecialidad?.findMany
 
     const consultaId = Number(consultaIdInput?.value ?? '0');
     if (!Number.isInteger(consultaId) || consultaId <= 0) {
-      setStatus('Consulta inválida.', true);
+      setStatus('Consulta inv\u00e1lida.', true);
       return;
     }
 
@@ -304,7 +343,7 @@ const examenesCatalogo = (prisma as any).examenEspecialidad?.findMany
       setStatus(data.message ?? 'Consulta actualizada.');
     } catch (error) {
       console.error(error);
-      setStatus('Error de conexión al guardar.', true);
+      setStatus('Error de conexi\u00f3n al guardar.', true);
     } finally {
       if (submitButton) submitButton.textContent = originalText ?? 'Guardar cambios';
       if (submitButton) submitButton.disabled = false;

@@ -86,6 +86,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   }
 
   const url = new URL(request.url);
+  const specialtyParam = url.searchParams.get("specialty")?.trim() || GENERAL_SPECIALTY_NAME;
   const fromParam = parseISODate(url.searchParams.get("from"));
   const toParam = parseISODate(url.searchParams.get("to"));
 
@@ -101,7 +102,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
 
   const now = new Date();
 
-  const slots = await prisma.disponibilidadTrabajador.findMany({
+  const rawSlots = await prisma.disponibilidadTrabajador.findMany({
     where: {
       estado: "disponible",
       fecha: {
@@ -130,6 +131,24 @@ export const GET: APIRoute = async ({ request, cookies }) => {
         },
       },
     },
+  });
+
+  const specialtiesSet = new Set<string>([GENERAL_SPECIALTY_NAME]);
+  for (const slot of rawSlots) {
+    const name = slot.trabajador.especialidad?.nombre_especialidad?.trim();
+    if (name) specialtiesSet.add(name);
+  }
+
+  const specialtiesList = Array.from(specialtiesSet);
+  const normalizedSpecialties = new Set(specialtiesList.map((name) => name.toLowerCase()));
+  const selectedSpecialty = normalizedSpecialties.has(specialtyParam.toLowerCase())
+    ? specialtyParam
+    : GENERAL_SPECIALTY_NAME;
+  const normalizedSelected = selectedSpecialty.toLowerCase();
+
+  const slots = rawSlots.filter((slot) => {
+    const slotSpecialty = slot.trabajador.especialidad?.nombre_especialidad ?? GENERAL_SPECIALTY_NAME;
+    return slotSpecialty.toLowerCase() === normalizedSelected;
   });
 
   const grouped = new Map<
@@ -212,6 +231,8 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       from: formatDateKey(fromDate),
       to: formatDateKey(toDate),
     },
+    specialties: specialtiesList,
+    selectedSpecialty,
     totalSlots: slots.length,
     days,
   });

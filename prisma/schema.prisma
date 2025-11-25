@@ -124,6 +124,7 @@ model Paciente {
   urgencia                Urgencia?  @relation(fields: [id_urgencia], references: [id_urgencia])
   disponibilidades        DisponibilidadTrabajador[]
   ingresos_enfermeria     IngresoEnfermeria[]
+  consultas_medica_slot   ConsultaMedicaSlot[]     @relation("PacienteConsulta")
 }
 
 model Trabajador {
@@ -218,6 +219,7 @@ model DisponibilidadTrabajador {
   paciente          Paciente?    @relation(fields: [id_paciente], references: [id_paciente])
   nota              String?
   ingreso_enfermeria IngresoEnfermeria?
+  consulta_medica_slot ConsultaMedicaSlot[] @relation("DisponibilidadConsulta")
   @@map("disponibilidad_trabajador")
   @@unique([id_trabajador, fecha], map: "trabajador_fecha_unica")
 }
@@ -245,4 +247,20 @@ model ExamenEspecialidad {
 
   @@map("examen_especialidad")
   @@unique([id_especialidad, nombre_examen], map: "especialidad_examen_unico")
+}
+
+model ConsultaMedicaSlot {
+  id_consulta       Int      @id
+  id_disponibilidad Int?
+  id_paciente       Int?
+  resumen           String
+  derivacion        String?
+  tratamiento       Json?
+  orden_examenes    String?
+  created_at        DateTime?
+  updated_at        DateTime?
+  disponibilidad    DisponibilidadTrabajador? @relation("DisponibilidadConsulta", fields: [id_disponibilidad], references: [id_disponibilidad])
+  paciente          Paciente?                 @relation("PacienteConsulta", fields: [id_paciente], references: [id_paciente])
+
+  @@map("consulta_medica_slot")
 }
