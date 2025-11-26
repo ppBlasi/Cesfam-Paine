@@ -52,31 +52,29 @@ const slotReservations = patient
     })
   : [];
 
-const reservations = [
-  ...legacyReservations.map((reservation) => ({
-    id: `legacy-${reservation.id_reserva}`,
-    dateLabel: reservation.fecha_reserva,
-    statusLabel: reservation.estado?.nombre_estado ?? "Pendiente",
-    datetime: reservation.fecha_hora?.fecha_hora ?? null,
-    doctorName: null,
-    specialty: null,
-  })),
-  ...slotReservations.map((slot) => ({
-    id: `slot-${slot.id_disponibilidad}`,
-    dateLabel: slot.fecha.toLocaleDateString("es-CL", { dateStyle: "medium" }),
-    statusLabel: slot.estado.charAt(0).toUpperCase() + slot.estado.slice(1),
-    datetime: slot.fecha,
-    doctorName: [
-      slot.trabajador.primer_nombre_trabajador,
-      slot.trabajador.segundo_nombre_trabajador,
-      slot.trabajador.apellido_p_trabajador,
-      slot.trabajador.apellido_m_trabajador,
-    ]
-      .filter(Boolean)
-      .join(" "),
-    specialty: slot.trabajador.especialidad?.nombre_especialidad ?? "Medicina General",
-  })),
-]
+const reservations = slotReservations
+  .filter((slot) => slot.estado === "reservado" && slot.fecha > new Date())
+  .map((slot) => {
+    const isFuture = slot.fecha > new Date();
+    const isCancelable = slot.estado === "reservado" && isFuture;
+    return {
+      id: `slot-${slot.id_disponibilidad}`,
+      dateLabel: slot.fecha.toLocaleDateString("es-CL", { dateStyle: "medium" }),
+      statusLabel: slot.estado.charAt(0).toUpperCase() + slot.estado.slice(1),
+      datetime: slot.fecha,
+      doctorName: [
+        slot.trabajador.primer_nombre_trabajador,
+        slot.trabajador.segundo_nombre_trabajador,
+        slot.trabajador.apellido_p_trabajador,
+        slot.trabajador.apellido_m_trabajador,
+      ]
+        .filter(Boolean)
+        .join(" "),
+      specialty: slot.trabajador.especialidad?.nombre_especialidad ?? "Medicina General",
+      availabilityId: slot.id_disponibilidad,
+      cancelable: isCancelable,
+    };
+  })
   .sort((a, b) => {
     const dateA = a.datetime ? new Date(a.datetime).getTime() : 0;
     const dateB = b.datetime ? new Date(b.datetime).getTime() : 0;
@@ -139,7 +137,19 @@ const cargoLabel =
 
       <div class="grid gap-6 md:grid-cols-5">
         <article class="order-2 rounded-3xl bg-white p-6 shadow-lg md:order-1 md:col-span-3">
-          <h2 class="text-xl font-semibold text-[#200934]">Reservas recientes</h2>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-xl font-semibold text-[#200934]">Horas reservadas</h2>
+              <p class="text-xs text-[#200934]/60">Estas son tus próximas horas. El historial completo está en la otra página.</p>
+            </div>
+            <a
+              href="/perfil/reservas"
+              class="inline-flex items-center rounded-2xl bg-[#200934] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#321355] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355]"
+            >
+              Ver historial de reservas
+            </a>
+          </div>
+          <p id="reservations-status" class="mt-2 min-h-[1.25rem] text-sm font-medium text-[#200934]" aria-live="polite"></p>
           {reservations.length > 0 ? (
             <ul class="mt-4 space-y-4">
               {reservations.map((reservation) => (
@@ -162,12 +172,47 @@ const cargoLabel =
                       </span>
                     </p>
                   ) : null}
+                  {reservation.cancelable ? (
+                    <div class="mt-3 space-y-2" data-cancel-block>
+                      <a
+                        href={`/reserva/editar?availabilityId=${reservation.availabilityId}&specialty=${encodeURIComponent(reservation.specialty ?? "")}`}
+                        class="inline-flex items-center rounded-2xl border border-[#200934]/20 px-4 py-2 text-sm font-semibold text-[#200934] transition hover:border-[#200934]/40 hover:bg-[#f7f4ff] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355]"
+                      >
+                        Editar
+                      </a>
+                      <button
+                        type="button"
+                        class="rounded-2xl border border-[#200934]/20 px-4 py-2 text-sm font-semibold text-[#200934] transition hover:border-[#200934]/40 hover:bg-[#f7f4ff] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355]"
+                        data-cancel-reservation
+                        data-availability-id={reservation.availabilityId}
+                      >
+                        Eliminar reserva
+                      </button>
+                      <div class="hidden items-center gap-2" data-cancel-confirm>
+                        <span class="text-sm text-[#200934]">¿Eliminar reserva?</span>
+                        <button
+                          type="button"
+                          class="rounded-2xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500"
+                          data-confirm-yes
+                        >
+                          Si
+                        </button>
+                        <button
+                          type="button"
+                          class="rounded-2xl bg-[#f7f4ff] px-3 py-1 text-xs font-semibold text-[#200934] transition hover:bg-[#ece3ff] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355]"
+                          data-confirm-no
+                        >
+                          No
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>
           ) : (
             <p class="mt-4 rounded-2xl bg-[#f9f7ff] p-4 text-sm text-[#200934]">
-              Todavía no registras reservas. Dirígete a la sección "Reserva tu Hora" para agendar una atención.
+              No cuenta con hora reservada.
             </p>
           )}
         </article>
@@ -180,19 +225,94 @@ const cargoLabel =
               <dd>{patient?.correo_paciente ?? 'Sin información'}</dd>
             </div>
             <div>
-              <dt class="font-semibold text-[#200934]">Telefono</dt>
-              <dd>{patient?.celular_paciente ?? 'Sin información'}</dd>
-            </div>
-          </dl>
+            <dt class="font-semibold text-[#200934]">Telefono</dt>
+            <dd>{patient?.celular_paciente ?? 'Sin información'}</dd>
+          </div>
+        </dl>
 
-          <a
-            href="/reserva/reserva"
-            class="mt-4 inline-flex items-center justify-center rounded-2xl bg-[#200934] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#321355]"
-          >
-            Ir a reservar una hora
-          </a>
+          <div class="mt-4 space-y-3">
+            <a
+              href="/reserva/reserva"
+              class="inline-flex w-full items-center justify-center rounded-2xl bg-[#200934] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#321355]"
+            >
+              Ir a reservar una hora
+            </a>
+            <a
+              href="/perfil/consultas"
+              class="inline-flex w-full items-center justify-center rounded-2xl border border-[#200934]/15 px-5 py-3 text-sm font-semibold text-[#200934] transition hover:border-[#200934]/30 hover:bg-[#f7f4ff]"
+            >
+              Ver consultas
+            </a>
+          </div>
         </aside>
       </div>
     </div>
   </section>
 </Layout>
+
+<script type="module">
+  const statusField = document.querySelector('#reservations-status');
+
+  const setStatus = (message, isError = false) => {
+    if (!statusField) return;
+    statusField.textContent = message ?? '';
+    statusField.classList.toggle('text-rose-600', Boolean(isError));
+    statusField.classList.toggle('text-emerald-600', !isError);
+  };
+
+  const handleCancel = async (availabilityId) => {
+    if (!availabilityId) return;
+
+    setStatus('Eliminando reserva...');
+    try {
+      const response = await fetch('/api/reservas', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ disponibilidadId: availabilityId }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus(data.error ?? 'No pudimos eliminar la reserva.', true);
+        return;
+      }
+
+      setStatus(data.message ?? 'Reserva eliminada.');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error) {
+      console.error(error);
+      setStatus('Error de conexión al eliminar la reserva.', true);
+    }
+  };
+
+  document.querySelectorAll('[data-cancel-block]').forEach((block) => {
+    const trigger = block.querySelector('[data-cancel-reservation]');
+    const confirmPanel = block.querySelector('[data-cancel-confirm]');
+    const yesBtn = block.querySelector('[data-confirm-yes]');
+    const noBtn = block.querySelector('[data-confirm-no]');
+
+    if (!trigger || !confirmPanel || !yesBtn || !noBtn) return;
+
+    const availabilityId = Number(trigger.getAttribute('data-availability-id') ?? '0');
+    if (!Number.isInteger(availabilityId) || availabilityId <= 0) return;
+
+    trigger.addEventListener('click', () => {
+      trigger.classList.add('hidden');
+      confirmPanel.classList.remove('hidden');
+      confirmPanel.classList.add('flex');
+    });
+
+    noBtn.addEventListener('click', () => {
+      confirmPanel.classList.add('hidden');
+      confirmPanel.classList.remove('flex');
+      trigger.classList.remove('hidden');
+    });
+
+    yesBtn.addEventListener('click', () => {
+      trigger.disabled = true;
+      yesBtn.disabled = true;
+      noBtn.disabled = true;
+      handleCancel(availabilityId);
+    });
+  });
+</script>

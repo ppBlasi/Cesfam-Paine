@@ -55,6 +55,28 @@ const humanizeDate = (value: Date) =>
     day: "numeric",
   });
 
+const getAllowedSpecialties = async (patientId: number | null) => {
+  const allowed = new Set<string>([GENERAL_SPECIALTY_NAME]);
+  if (!patientId) return allowed;
+
+  const derivaciones = await prisma.consultaMedicaSlot.findMany({
+    where: {
+      id_paciente: patientId,
+      derivacion: { not: null },
+    },
+    select: { derivacion: true },
+  });
+
+  for (const item of derivaciones) {
+    const name = item.derivacion?.trim();
+    if (name) {
+      allowed.add(name);
+    }
+  }
+
+  return allowed;
+};
+
 const ensurePatientSession = async (cookies: APIRoute["context"]["cookies"]) => {
   const token = cookies.get(SESSION_COOKIE_NAME)?.value;
 
@@ -102,6 +124,45 @@ export const GET: APIRoute = async ({ request, cookies }) => {
 
   const now = new Date();
 
+  const patient = await prisma.paciente.findFirst({
+    where: { rut_paciente: session.usuario.rut },
+    select: { id_paciente: true },
+  });
+
+  const allowedSpecialtiesSet = await getAllowedSpecialties(patient?.id_paciente ?? null);
+  const allowedSpecialties = Array.from(allowedSpecialtiesSet);
+  const allowedNormalized = new Set(allowedSpecialties.map((name) => name.toLowerCase()));
+  const requestedSpecialty = allowedNormalized.has(specialtyParam.toLowerCase())
+    ? specialtyParam
+    : GENERAL_SPECIALTY_NAME;
+
+  const existingBooking = patient
+    ? await prisma.disponibilidadTrabajador.findFirst({
+        where: {
+          id_paciente: patient.id_paciente,
+          estado: "reservado",
+          fecha: { gte: now },
+          trabajador: {
+            especialidad: { nombre_especialidad: requestedSpecialty },
+          },
+        },
+        orderBy: { fecha: "asc" },
+        select: {
+          id_disponibilidad: true,
+          fecha: true,
+          trabajador: {
+            select: {
+              primer_nombre_trabajador: true,
+              segundo_nombre_trabajador: true,
+              apellido_p_trabajador: true,
+              apellido_m_trabajador: true,
+              especialidad: { select: { nombre_especialidad: true } },
+            },
+          },
+        },
+      })
+    : null;
+
   const rawSlots = await prisma.disponibilidadTrabajador.findMany({
     where: {
       estado: "disponible",
@@ -112,7 +173,9 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       trabajador: {
         estado_trabajador: "Activo",
         especialidad: {
-          nombre_especialidad: GENERAL_SPECIALTY_NAME,
+          nombre_especialidad: {
+            in: allowedSpecialties,
+          },
         },
       },
     },
@@ -141,8 +204,8 @@ export const GET: APIRoute = async ({ request, cookies }) => {
 
   const specialtiesList = Array.from(specialtiesSet);
   const normalizedSpecialties = new Set(specialtiesList.map((name) => name.toLowerCase()));
-  const selectedSpecialty = normalizedSpecialties.has(specialtyParam.toLowerCase())
-    ? specialtyParam
+  const selectedSpecialty = normalizedSpecialties.has(requestedSpecialty.toLowerCase())
+    ? requestedSpecialty
     : GENERAL_SPECIALTY_NAME;
   const normalizedSelected = selectedSpecialty.toLowerCase();
 
@@ -235,5 +298,21 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     selectedSpecialty,
     totalSlots: slots.length,
     days,
+    existingBooking: existingBooking
+      ? {
+          disponibilidadId: existingBooking.id_disponibilidad,
+          fecha: existingBooking.fecha.toISOString(),
+          doctor: [
+            existingBooking.trabajador?.primer_nombre_trabajador,
+            existingBooking.trabajador?.segundo_nombre_trabajador,
+            existingBooking.trabajador?.apellido_p_trabajador,
+            existingBooking.trabajador?.apellido_m_trabajador,
+          ]
+            .filter(Boolean)
+            .join(" "),
+          specialty:
+            existingBooking.trabajador?.especialidad?.nombre_especialidad ?? GENERAL_SPECIALTY_NAME,
+        }
+      : null,
   });
 };

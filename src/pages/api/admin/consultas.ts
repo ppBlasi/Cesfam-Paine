@@ -69,18 +69,19 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
   }
 
   try {
-    const updated = await prisma.$executeRaw`
-      UPDATE consulta_medica_slot
-      SET
-        resumen = ${resumen},
-        derivacion = ${derivacion || null},
-        tratamiento = ${tratamiento as any},
-        orden_examenes = ${ordenExamenes || null},
-        updated_at = NOW()
-      WHERE id_consulta = ${consultaId}
-    `;
+    const updated = await prisma.consultaMedicaSlot.update({
+      where: { id_consulta: consultaId },
+      data: {
+        resumen,
+        derivacion: derivacion || null,
+        tratamiento: (tratamiento ?? null) as any,
+        orden_examenes: ordenExamenes || null,
+        updated_at: new Date(),
+      },
+      select: { id_consulta: true },
+    });
 
-    if (typeof updated === "number" && updated === 0) {
+    if (!updated) {
       return jsonResponse(404, { error: "Consulta no encontrada." });
     }
 

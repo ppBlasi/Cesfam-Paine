@@ -1,0 +1,116 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { prisma } from "../../lib/prisma";
+
+const user = Astro.locals.user;
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+const patient = await prisma.paciente.findFirst({
+  where: { rut_paciente: user.rut },
+  select: {
+    id_paciente: true,
+    primer_nombre_paciente: true,
+    segundo_nombre_paciente: true,
+    apellido_p_paciente: true,
+    apellido_m_paciente: true,
+  },
+});
+
+if (!patient) {
+  return Astro.redirect("/perfil");
+}
+
+const consultas = await prisma.consultaMedicaSlot.findMany({
+  where: { id_paciente: patient.id_paciente },
+  orderBy: { created_at: "desc" },
+  include: {
+    disponibilidad: {
+      select: {
+        trabajador: {
+          select: {
+            primer_nombre_trabajador: true,
+            segundo_nombre_trabajador: true,
+            apellido_p_trabajador: true,
+            apellido_m_trabajador: true,
+            especialidad: { select: { nombre_especialidad: true } },
+          },
+        },
+        fecha: true,
+      },
+    },
+  },
+});
+
+const formatDateTime = (value: Date | null | undefined) =>
+  value ? value.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : "Sin fecha";
+
+const consultaRows = consultas.map((c) => ({
+  id: c.id_consulta,
+  fecha: c.created_at ?? c.disponibilidad?.fecha ?? c.fecha,
+  resumen: c.resumen,
+  especialidad: c.disponibilidad?.trabajador?.especialidad?.nombre_especialidad ?? "Medicina General",
+  doctor: [
+    c.disponibilidad?.trabajador?.primer_nombre_trabajador,
+    c.disponibilidad?.trabajador?.segundo_nombre_trabajador,
+    c.disponibilidad?.trabajador?.apellido_p_trabajador,
+    c.disponibilidad?.trabajador?.apellido_m_trabajador,
+  ]
+    .filter(Boolean)
+    .join(" "),
+  derivacion: c.derivacion,
+}));
+---
+
+<Layout title="Historial de consultas">
+  <section class="bg-[#f4f1fb] py-10">
+    <div class="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 sm:px-6">
+      <header class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="text-sm uppercase tracking-[0.35em] text-[#200934]/60">Mi cesfam</p>
+          <h1 class="mt-2 text-3xl font-bold text-[#200934]">Consultas realizadas</h1>
+          <p class="text-sm text-[#200934]/70">Resumen de tus atenciones registradas en el sistema.</p>
+        </div>
+        <a
+          href="/perfil"
+          class="inline-flex items-center rounded-2xl border border-[#200934]/15 px-4 py-2 text-sm font-semibold text-[#200934] transition hover:border-[#200934]/30 hover:bg-[#f7f4ff] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355]"
+        >
+          Volver al perfil
+        </a>
+      </header>
+
+      <article class="rounded-3xl bg-white p-6 shadow-lg">
+        {consultaRows.length > 0 ? (
+          <ul class="space-y-4">
+            {consultaRows.map((item) => (
+              <li class="rounded-2xl border border-[#200934]/10 bg-[#f9f7ff] p-4">
+                <p class="text-sm font-semibold text-[#200934]">Consulta #{item.id}</p>
+                <p class="text-sm text-[#200934]/70">
+                  Fecha: <span class="font-medium text-[#200934]">{formatDateTime(item.fecha)}</span>
+                </p>
+                <p class="text-sm text-[#200934]/70">
+                  Profesional: <span class="font-medium text-[#200934]">{item.doctor || "Sin profesional"}</span>
+                </p>
+                <p class="text-sm text-[#200934]/70">
+                  Especialidad: <span class="font-medium text-[#200934]">{item.especialidad}</span>
+                </p>
+                <p class="text-sm text-[#200934]/70">
+                  Resumen: <span class="font-medium text-[#200934]">{item.resumen || "Sin resumen"}</span>
+                </p>
+                {item.derivacion ? (
+                  <p class="text-sm text-[#200934]/70">
+                    Derivación: <span class="font-medium text-[#200934]">{item.derivacion}</span>
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="text-sm text-[#200934]/70">No tienes consultas registradas.</p>
+        )}
+      </article>
+    </div>
+  </section>
+</Layout>

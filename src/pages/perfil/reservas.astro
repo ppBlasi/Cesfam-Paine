@@ -1,0 +1,137 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { prisma } from "../../lib/prisma";
+
+const user = Astro.locals.user;
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+const patient = await prisma.paciente.findFirst({
+  where: { rut_paciente: user.rut },
+  select: {
+    id_paciente: true,
+    primer_nombre_paciente: true,
+    segundo_nombre_paciente: true,
+    apellido_p_paciente: true,
+    apellido_m_paciente: true,
+  },
+});
+
+const legacyReservations = patient
+  ? await prisma.reserva.findMany({
+      where: { paciente: { some: { id_paciente: patient.id_paciente } } },
+      include: {
+        estado: true,
+        fecha_hora: true,
+      },
+      orderBy: { fecha_reserva: "desc" },
+      take: 50,
+    })
+  : [];
+
+const slotReservations = patient
+  ? await prisma.disponibilidadTrabajador.findMany({
+      where: { id_paciente: patient.id_paciente },
+      include: {
+        trabajador: {
+          select: {
+            primer_nombre_trabajador: true,
+            segundo_nombre_trabajador: true,
+            apellido_p_trabajador: true,
+            apellido_m_trabajador: true,
+            especialidad: { select: { nombre_especialidad: true } },
+          },
+        },
+      },
+      orderBy: { fecha: "desc" },
+      take: 50,
+    })
+  : [];
+
+const reservations = [
+  ...legacyReservations.map((reservation) => ({
+    id: `legacy-${reservation.id_reserva}`,
+    dateLabel: reservation.fecha_reserva,
+    statusLabel: reservation.estado?.nombre_estado ?? "Pendiente",
+    datetime: reservation.fecha_hora?.fecha_hora ?? null,
+    doctorName: null,
+    specialty: null,
+  })),
+  ...slotReservations.map((slot) => ({
+    id: `slot-${slot.id_disponibilidad}`,
+    dateLabel: slot.fecha.toLocaleDateString("es-CL", { dateStyle: "medium" }),
+    statusLabel: slot.estado.charAt(0).toUpperCase() + slot.estado.slice(1),
+    datetime: slot.fecha,
+    doctorName: [
+      slot.trabajador.primer_nombre_trabajador,
+      slot.trabajador.segundo_nombre_trabajador,
+      slot.trabajador.apellido_p_trabajador,
+      slot.trabajador.apellido_m_trabajador,
+    ]
+      .filter(Boolean)
+      .join(" "),
+    specialty: slot.trabajador.especialidad?.nombre_especialidad ?? "Medicina General",
+  })),
+]
+  .sort((a, b) => {
+    const dateA = a.datetime ? new Date(a.datetime).getTime() : 0;
+    const dateB = b.datetime ? new Date(b.datetime).getTime() : 0;
+    return dateB - dateA;
+  });
+
+const formatDateTime = (value: Date | null | undefined) =>
+  value ? value.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : "Sin asignar";
+---
+
+<Layout title="Historial de reservas">
+  <section class="bg-[#f4f1fb] py-10">
+    <div class="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 sm:px-6">
+      <header class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="text-sm uppercase tracking-[0.35em] text-[#200934]/60">Mi cesfam</p>
+          <h1 class="mt-2 text-3xl font-bold text-[#200934]">Historial de reservas</h1>
+          <p class="text-sm text-[#200934]/70">Revisa todas tus reservas realizadas en el sistema.</p>
+        </div>
+        <a
+          href="/perfil"
+          class="inline-flex items-center rounded-2xl border border-[#200934]/15 px-4 py-2 text-sm font-semibold text-[#200934] transition hover:border-[#200934]/30 hover:bg-[#f7f4ff] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355]"
+        >
+          Volver al perfil
+        </a>
+      </header>
+
+      <article class="rounded-3xl bg-white p-6 shadow-lg">
+        {reservations.length > 0 ? (
+          <ul class="space-y-4">
+            {reservations.map((reservation) => (
+              <li class="rounded-2xl border border-[#200934]/10 bg-[#f9f7ff] p-4">
+                <p class="text-sm font-semibold text-[#200934]">{reservation.dateLabel}</p>
+                <p class="text-sm text-[#200934]/70">
+                  Estado: <span class="font-medium text-[#200934]">{reservation.statusLabel}</span>
+                </p>
+                <p class="text-sm text-[#200934]/70">
+                  Fecha y hora:{" "}
+                  <span class="font-medium text-[#200934]">
+                    {reservation.datetime ? formatDateTime(reservation.datetime) : reservation.dateLabel}
+                  </span>
+                </p>
+                {reservation.doctorName ? (
+                  <p class="text-sm text-[#200934]/70">
+                    Profesional:{" "}
+                    <span class="font-medium text-[#200934]">
+                      {reservation.doctorName} ({reservation.specialty})
+                    </span>
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="text-sm text-[#200934]/70">No se encontraron reservas registradas.</p>
+        )}
+      </article>
+    </div>
+  </section>
+</Layout>

@@ -21,6 +21,7 @@
 
     <div v-else class="mt-6 space-y-6">
       <div v-if="loading" class="space-y-4">
+        <p class="text-sm text-white/80">Cargando horas disponibles...</p>
         <div class="h-8 w-48 animate-pulse rounded-full bg-white/10"></div>
         <div class="grid gap-4 md:grid-cols-2">
           <div class="h-72 animate-pulse rounded-3xl bg-white/10"></div>
@@ -46,6 +47,12 @@
             <option v-for="opt in specialtyOptions" :key="opt" :value="opt">{{ opt }}</option>
           </select>
           <p class="text-xs text-white/70">Selecciona una especialidad para ver el calendario.</p>
+          <p
+            v-if="hasExistingBooking"
+            class="mt-2 rounded-2xl bg-amber-200/20 px-4 py-3 text-xs font-semibold text-amber-100 shadow-inner"
+          >
+            {{ existingBookingMessage }}
+          </p>
         </div>
 
         <div v-if="selectedSpecialty" class="flex flex-col gap-6 lg:flex-row">
@@ -78,6 +85,7 @@
                 type="button"
                 @click="selectSlot(slot)"
                 :class="slotButtonClass(slot)"
+                :disabled="hasExistingBooking"
               >
                 <span class="text-xl font-semibold">{{ slot.time }}</span>
                 <span class="mt-1 block text-xs text-white/80">
@@ -90,7 +98,7 @@
 
         <transition name="fade">
           <div
-            v-if="selectedSlot && selectedSlot.entries.length > 0"
+            v-if="selectedSlot && selectedSlot.entries.length > 0 && (!hasExistingBooking || rescheduleMode)"
             class="rounded-3xl bg-white p-6 text-[#200934]"
           >
             <h4 class="text-lg font-semibold">
@@ -118,7 +126,7 @@
                   :disabled="reserving"
                   @click="askForConfirmation(entry)"
                 >
-                  {{ reserving ? "Reservando..." : "Reservar esta hora" }}
+                  {{ reserving ? (rescheduleMode ? "Reagendando..." : "Reservando...") : actionLabel }}
                 </button>
               </article>
             </div>
@@ -133,9 +141,9 @@
       <transition name="fade">
         <div v-if="showConfirm && pendingEntry" class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
           <div class="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
-            <p class="text-lg font-semibold text-[#200934]">¿Confirmar reserva?</p>
+            <p class="text-lg font-semibold text-[#200934]">{{ rescheduleMode ? "¿Confirmar cambio?" : "¿Confirmar reserva?" }}</p>
             <p class="mt-2 text-sm text-[#200934]/80">
-              Estas seguro que quieres reservar esta hora:
+              Estas seguro que quieres {{ rescheduleMode ? "cambiar" : "reservar" }} esta hora:
               <strong>{{ formattedSelectedDate }}</strong> a las <strong>{{ selectedSlot?.time }}</strong> con
               <strong>{{ pendingEntry.doctorName }}</strong>.
             </p>
@@ -161,9 +169,9 @@
                 type="button"
                 class="rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#200934] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355]"
                 :disabled="reserving"
-                @click="reserve()"
+                @click="rescheduleMode ? reschedule() : reserve()"
               >
-                {{ reserving ? "Reservando..." : "Si, reservar" }}
+                {{ reserving ? (rescheduleMode ? "Reagendando..." : "Reservando...") : rescheduleMode ? "Si, reagendar" : "Si, reservar" }}
               </button>
             </div>
           </div>
@@ -183,6 +191,18 @@ const props = defineProps({
     type: String,
     default: "",
   },
+  rescheduleMode: {
+    type: Boolean,
+    default: false,
+  },
+  rescheduleAvailabilityId: {
+    type: Number,
+    default: null,
+  },
+  rescheduleSpecialty: {
+    type: String,
+    default: "",
+  },
 });
 
 const loading = ref(true);
@@ -192,6 +212,12 @@ const successMessage = ref("");
 const note = ref("");
 const reserving = ref(false);
 const specialtyLocked = ref(false);
+const existingBooking = ref(null);
+const rescheduleMode = computed(() => Boolean(props.rescheduleMode));
+const rescheduleAvailabilityId = computed(() =>
+  Number.isFinite(props.rescheduleAvailabilityId) ? Number(props.rescheduleAvailabilityId) : null
+);
+const rescheduleSpecialty = computed(() => props.rescheduleSpecialty || "");
 
 const days = ref([]);
 const selectedDate = ref(null);
@@ -215,6 +241,9 @@ const fetchAvailability = async () => {
       refreshing.value = true;
     }
     error.value = "";
+    if (rescheduleSpecialty.value) {
+      selectedSpecialty.value = rescheduleSpecialty.value;
+    }
     const query = new URLSearchParams();
     query.set("specialty", selectedSpecialty.value || GENERAL_SPECIALTY);
 
@@ -226,9 +255,17 @@ const fetchAvailability = async () => {
     const data = await response.json();
     const apiSpecialties = Array.isArray(data.specialties) ? data.specialties : [];
     specialties.value = Array.from(new Set([GENERAL_SPECIALTY, ...apiSpecialties]));
-    selectedSpecialty.value = data.selectedSpecialty || selectedSpecialty.value || GENERAL_SPECIALTY;
-    specialtyLocked.value = selectedSpecialty.value !== GENERAL_SPECIALTY;
+    selectedSpecialty.value =
+      rescheduleSpecialty.value ||
+      data.selectedSpecialty ||
+      selectedSpecialty.value ||
+      GENERAL_SPECIALTY;
+    specialtyLocked.value = Boolean(rescheduleSpecialty.value);
     days.value = Array.isArray(data.days) ? data.days : [];
+    existingBooking.value = data.existingBooking ?? null;
+    if (existingBooking.value && !rescheduleMode.value) {
+      selectedSlot.value = null;
+    }
     minDate.value = data.range?.from ? new Date(`${data.range.from}T00:00:00`) : null;
     maxDate.value = data.range?.to ? new Date(`${data.range.to}T00:00:00`) : null;
     if (days.value.length > 0) {
@@ -289,6 +326,25 @@ const slotsForSelectedDate = computed(() => {
   return day ? day.slots : [];
 });
 
+const hasExistingBooking = computed(
+  () =>
+    Boolean(existingBooking.value) &&
+    !(
+      rescheduleMode.value &&
+      rescheduleAvailabilityId.value &&
+      existingBooking.value?.disponibilidadId === rescheduleAvailabilityId.value
+    )
+);
+const existingBookingMessage = computed(() => {
+  if (!existingBooking.value) return "";
+  const date = new Date(existingBooking.value.fecha);
+  const formatted = new Intl.DateTimeFormat("es-CL", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+  return `No puede reservar 2 horas para una misma especialidad. Usted tiene una hora reservada (${formatted}).`;
+});
+
 const formattedSelectedDate = computed(() => {
   if (!selectedDateKey.value) return "--";
   return new Intl.DateTimeFormat("es-CL", { dateStyle: "full" }).format(new Date(`${selectedDateKey.value}T00:00:00`));
@@ -301,6 +357,7 @@ const specialtyOptions = computed(() => {
 });
 
 const selectSlot = (slot) => {
+  if (hasExistingBooking.value) return;
   selectedSlot.value = slot;
   note.value = "";
   successMessage.value = "";
@@ -322,6 +379,7 @@ const slotButtonClass = (slot) => {
 };
 
 const askForConfirmation = (entry) => {
+  if (hasExistingBooking.value) return;
   pendingEntry.value = entry;
   showConfirm.value = true;
   successMessage.value = "";
@@ -332,7 +390,42 @@ const closeConfirm = () => {
   showConfirm.value = false;
 };
 
+const reschedule = async () => {
+  if (!pendingEntry.value) return;
+  if (reserving.value) return;
+  if (!rescheduleMode.value || !rescheduleAvailabilityId.value) return;
+  successMessage.value = "";
+  reserving.value = true;
+
+  try {
+    const response = await fetch("/api/reservas", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        oldAvailabilityId: rescheduleAvailabilityId.value,
+        newAvailabilityId: pendingEntry.value.disponibilidadId,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error ?? "No pudimos editar la reserva.");
+    }
+
+    successMessage.value = data.message ?? "Reserva actualizada.";
+    closeConfirm();
+    await fetchAvailability();
+    window.location.href = "/perfil";
+  } catch (err) {
+    console.error(err);
+    error.value = err instanceof Error ? err.message : "Ocurrio un problema al editar tu hora.";
+  } finally {
+    reserving.value = false;
+  }
+};
+
 const reserve = async () => {
+  if (hasExistingBooking.value) return;
   if (!pendingEntry.value) return;
   if (reserving.value) return;
   successMessage.value = "";
@@ -376,11 +469,20 @@ const refresh = async () => {
 };
 
 const handleSpecialtyChange = async () => {
+  loading.value = true;
+  error.value = "";
   selectedSlot.value = null;
+  selectedDate.value = null;
+  days.value = [];
+  existingBooking.value = null;
+  pendingEntry.value = null;
+  showConfirm.value = false;
   note.value = "";
   successMessage.value = "";
   await fetchAvailability();
 };
+
+const actionLabel = computed(() => (rescheduleMode.value ? "Reagendar" : "Reservar esta hora"));
 </script>
 
 <style scoped>
@@ -392,5 +494,10 @@ const handleSpecialtyChange = async () => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+select option {
+  color: #200934;
+  background-color: #ffffff;
 }
 </style>

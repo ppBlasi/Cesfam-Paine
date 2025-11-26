@@ -231,7 +231,7 @@ const formatCargoLabel = (cargo: string) => {
 
   <div
     id="edit-modal"
-    class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 px-4 py-10 backdrop-blur"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 px-4 py-10 backdrop-blur"
   >
     <div class="relative w-full max-w-3xl rounded-3xl bg-white p-6 shadow-2xl">
       <button
@@ -469,9 +469,15 @@ const formatCargoLabel = (cargo: string) => {
     editStatusField.classList.toggle('text-emerald-600', !isError);
   };
 
-  const openModal = () => modal?.classList.remove('hidden');
+  const openModal = () => {
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  };
   const closeModal = () => {
-    modal?.classList.add('hidden');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
     setEditStatus('');
   };
 
