@@ -1,268 +1,144 @@
 <footer class="mt-auto w-full bg-gradient-to-b from-[#1b0f2b] via-[#200934] to-[#12061f] text-white shadow-inner">
   <div class="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10 lg:px-6">
     <div class="grid gap-8 md:grid-cols-[1.05fr_1.35fr_0.9fr]">
+
       <div class="space-y-4">
         <p class="text-xs font-semibold uppercase tracking-[0.35em] text-white/60">Contacto</p>
         <h2 class="text-2xl font-semibold leading-tight md:text-3xl">CESFAM Dr. Miguel Solar</h2>
         <ul class="space-y-2 text-sm text-white/80">
-          <li>
-            <span class="font-semibold text-white">Direccion:</span>
-            Acceso 1 2-98, Paine, Region Metropolitana
-          </li>
-          <li>
-            <span class="font-semibold text-white">Telefono:</span>
-            800 000 138
-          </li>
-          <li>
-            <span class="font-semibold text-white">Correo:</span>
-            cesfam@paine.cl
-          </li>
-          <li>
-            <span class="font-semibold text-white">Horario general:</span>
-            Lun a Vie de 08:00 a 19:30, Sab 08:00 a 12:30
-          </li>
+          <li><span class="font-semibold text-white">Dirección:</span> CESFAM Dr. Miguel Solar</li>
+          <li><span class="font-semibold text-white">Teléfono:</span> 800 000 138</li>
+          <li><span class="font-semibold text-white">Correo:</span> cesfam@paine.cl</li>
+          <li><span class="font-semibold text-white">Horario general:</span> Lun a Vie 08:00–19:30, Sáb 08:00–12:30</li>
         </ul>
+
         <div class="flex flex-wrap gap-3 pt-2 text-sm">
-          <a
-            href="tel:800000138"
-            class="rounded-full border border-white/20 px-4 py-2 font-semibold text-white transition hover:border-white hover:bg-white/10"
-          >
+          <a href="tel:800000138"
+             class="rounded-full border border-white/20 px-4 py-2 font-semibold text-white transition hover:border-white hover:bg-white/10">
             Llamar ahora
           </a>
-          <a
-            href="mailto:cesfam@paine.cl"
-            class="rounded-full bg-white/15 px-4 py-2 font-semibold text-white transition hover:bg-white/25"
-          >
+          <a href="mailto:cesfam@paine.cl"
+             class="rounded-full bg-white/15 px-4 py-2 font-semibold text-white transition hover:bg-white/25">
             Escribir correo
           </a>
         </div>
       </div>
 
       <div class="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-white/60">Donde estamos</p>
-        <p class="mt-2 text-lg font-semibold">Visitanos en Paine</p>
-        <p class="text-sm text-white/70">
-          Estamos ubicados a pasos de la plaza principal. Puedes encontrarnos facilmente en la siguiente referencia.
-        </p>
+        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-white/60">Dónde estamos</p>
+        <p class="mt-2 text-lg font-semibold">Visítanos en Paine</p>
+        <p class="text-sm text-white/70">Haz clic en el mapa para cargar la versión interactiva.</p>
 
-        <!-- Map container: show a preview image first, then replace with the interactive Google Map when user clicks -->
-        <div class="mt-4 overflow-hidden rounded-2xl border border-white/10 shadow-lg">
-          <!-- Preview: use a static Google Static Map (replace YOUR_GOOGLE_MAPS_API_KEY if needed)
-           If you don't have an API key, keep a local /maps.png as a fallback preview image -->
-          <div class="relative w-full">
-        <button
-          id="map-load-btn"
-          type="button"
-          class="group block w-full cursor-pointer"
-          aria-label="Cargar mapa interactivo"
-          title="Cargar mapa interactivo"
-        >
-          <img
-            id="map-preview"
-            src="https://maps.googleapis.com/maps/api/staticmap?center=-33.7339,-70.7086&zoom=15&size=640x380&scale=2&markers=color:red%7C-33.7339,-70.7086&key=AIzaSyB5qomquPBUFCWQ59fCbypase_7odrJU_s"
-            alt="Vista previa del mapa — CESFAM Dr. Miguel Solar, Acceso 1 2-98, Paine, Region Metropolitana"
-            class="h-64 w-full object-cover"
-            loading="lazy"
-          />
+        <div class="mt-4 overflow-hidden rounded-2xl border border-white/10 shadow-lg relative">
+          <button id="map-load-btn" type="button" class="group block w-full cursor-pointer">
+            <img id="map-preview"
+                 src="https://maps.googleapis.com/maps/api/staticmap?center=-33.80482108500673,-70.74123299272878&zoom=17&size=640x380&scale=2&markers=color:red%7C-33.80482108500673,-70.74123299272878&key=AIzaSyB5qomquPBUFCWQ59fCbypase_7odrJU_s"
+                 alt="Mapa — CESFAM Dr. Miguel Solar"
+                 class="h-64 w-full object-cover"
+                 loading="lazy" />
+          </button>
 
-          <!-- If the static image fails (no key), the local /maps.png will be used as fallback using onerror -->
-        </button>
+          <div id="map" class="hidden h-64 w-full" role="region"></div>
 
-        <!-- Interactive map element (hidden until user clicks the preview) -->
-        <div id="map" class="hidden h-64 w-full" role="region" aria-label="Mapa de ubicacion del CESFAM Dr. Miguel Solar"></div>
-
-        <!-- Small overlay "Open" label on top of the preview to make affordance clearer -->
-        <span
-          class="absolute bottom-3 left-3 inline-flex items-center gap-2 rounded-md bg-black/50 px-3 py-1 text-sm font-semibold text-white/90 group-hover:bg-black/60"
-          aria-hidden="true"
-        >
-          Cargar mapa
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-          </svg>
-        </span>
-          </div>
+          <span class="absolute bottom-3 left-3 inline-flex items-center gap-2 rounded-md bg-black/50 px-3 py-1 text-sm font-semibold text-white/90 group-hover:bg-black/60">
+            Cargar mapa →
+          </span>
         </div>
 
-        <!-- Fallback for no-JS visitors -->
         <noscript>
           <div class="mt-4 overflow-hidden rounded-2xl border border-white/10 shadow-lg">
-        <img
-          src="/maps.png"
-          alt="Mapa de ubicacion del CESFAM Dr. Miguel Solar"
-          class="h-64 w-full object-cover"
-          loading="lazy"
-        />
+            <img src="/maps.png" class="h-64 w-full object-cover" />
           </div>
         </noscript>
 
-        <!-- Google Maps link (opens in Google Maps) using the address query -->
-        <a
-          href="https://www.google.com/maps/search/?api=1&query=Acceso+1+2-98,+Paine,+Region+Metropolitana"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-white transition hover:text-emerald-200"
-        >
-          Abrir en Google Maps
-          <span aria-hidden="true">→</span>
+        <a href="https://www.google.com/maps/search/?api=1&query=CESFAM+Dr.+Miguel+Solar"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-white transition hover:text-emerald-200">
+          Abrir en Google Maps →
         </a>
 
-        <!-- Client-side code: lazy-load the Google Maps script and swap preview with interactive map -->
         <script>
-          (function () {
-        const LAT = -33.7339;
-        const LON = -70.7086;
-        const ZOOM = 15;
-        const ADDRESS = 'Acceso 1 2-98, Paine, Region Metropolitana';
-        // Set your key here; keep the placeholder if you don't have one to avoid loading Google Maps
-        const GMAPS_API_KEY = 'AIzaSyB5qomquPBUFCWQ59fCbypase_7odrJU_s';
+          document.addEventListener("DOMContentLoaded", () => {
+            const LAT = -33.80482108500673;
+            const LON = -70.74123299272878;
+            const ZOOM = 17;
 
-        // Cast to concrete element types to avoid TS-type errors
-        const previewImg = document.getElementById('map-preview') as HTMLImageElement | null;
-        const mapEl = document.getElementById('map') as HTMLDivElement | null;
-        const loadBtn = document.getElementById('map-load-btn') as HTMLButtonElement | null;
+            const previewImg = document.getElementById("map-preview");
+            const mapEl = document.getElementById("map");
+            const loadBtn = document.getElementById("map-load-btn");
 
-        // if static image fails (for example, no API key), replace with local fallback
-        if (previewImg) {
-          previewImg.addEventListener('error', () => {
-            previewImg.src = '/maps.png';
+            function initMapInternal() {
+              mapEl.classList.remove("hidden");
+
+              if (!window.google || !window.google.maps) {
+                previewImg.classList.remove("hidden");
+                mapEl.classList.add("hidden");
+                return;
+              }
+
+              const center = { lat: LAT, lng: LON };
+              const map = new google.maps.Map(mapEl, {
+                center,
+                zoom: ZOOM,
+                gestureHandling: "greedy",
+                zoomControl: true,
+                mapTypeControl: false,
+                streetViewControl: false,
+              });
+
+              new google.maps.Marker({
+                position: center,
+                map,
+                title: "CESFAM Dr. Miguel Solar",
+              });
+            }
+
+            window.initMap = initMapInternal;
+
+            function loadGoogleMapsScript() {
+              if (window.google && window.google.maps) return initMapInternal();
+
+              const script = document.createElement("script");
+              script.id = "gmaps-script";
+              script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyB5qomquPBUFCWQ59fCbypase_7odrJU_s&callback=initMap`;
+              script.async = true;
+              script.defer = true;
+
+              script.onerror = () => {
+                previewImg.classList.remove("hidden");
+                mapEl.classList.add("hidden");
+              };
+
+              document.body.appendChild(script);
+            }
+
+            function showMap() {
+              previewImg.classList.add("hidden");
+              loadGoogleMapsScript();
+            }
+
+            loadBtn.addEventListener("click", showMap);
           });
-        }
-
-        // initialize the interactive map (called by Google's API callback)
-        function initMapInternal () {
-          if (!mapEl) return;
-          // make sure the map element is visible
-          mapEl.classList.remove('hidden');
-
-          const center = { lat: LAT, lng: LON };
-
-          try {
-            const map = (window as any).google.maps.Map;
-            // create map object using the API
-            const createdMap = new (window as any).google.maps.Map(mapEl, {
-              center,
-              zoom: ZOOM,
-              gestureHandling: 'cooperative',
-              zoomControl: true,
-              mapTypeControl: false,
-              streetViewControl: false,
-            });
-
-            const marker = new (window as any).google.maps.Marker({
-              position: center,
-              map: createdMap,
-              title: 'CESFAM Dr. Miguel Solar',
-            });
-
-            const infoWindow = new (window as any).google.maps.InfoWindow({
-              content: `<strong>CESFAM Dr. Miguel Solar</strong><br>${ADDRESS}`,
-            });
-            infoWindow.open(createdMap, marker);
-          } catch (err) {
-            // If anything fails when the Google Maps API is present, gracefully fall back to the preview
-            // eslint-disable-next-line no-console
-            console.warn('No se pudo inicializar Google Maps, mostrando fallback', err);
-            if (mapEl) mapEl.classList.add('hidden');
-            if (previewImg) previewImg.src = '/maps.png';
-            alert('Mapa interactivo no disponible.');
-          }
-        }
-
-        // set as global callback for the script's callback parameter — typed as any to avoid TS errors
-        (window as any).initMap = initMapInternal;
-
-        function loadGoogleMapsScript () {
-          // if the API is already loaded, initialize immediately
-          if ((window as any).google && (window as any).google.maps) return initMapInternal();
-          if (document.getElementById('gmaps-script')) return; // already loading
-
-          // If the API key is a placeholder, skip loading the Google script to avoid Google errors
-          if (!GMAPS_API_KEY || GMAPS_API_KEY.includes('YOUR_GOOGLE_MAPS_API_KEY')) {
-            // Keep the preview image visible and inform the user
-            if (previewImg) {
-              previewImg.src = '/maps.png';
-              previewImg.classList.remove('hidden');
-            }
-            alert('Mapa interactivo no disponible: falta la clave de Google Maps.');
-            return;
-          }
-
-          const script = document.createElement('script') as HTMLScriptElement;
-          script.id = 'gmaps-script';
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GMAPS_API_KEY)}&callback=initMap`;
-          script.async = true;
-          script.defer = true;
-
-          // Handle script load error to avoid showing the Google overlay error inside the map container
-          script.onerror = function () {
-            // Script failed to load — revert to fallback preview
-            if (mapEl) mapEl.classList.add('hidden');
-            if (previewImg) {
-              previewImg.src = '/maps.png';
-              previewImg.classList.remove('hidden');
-            }
-            alert('No se pudo cargar Google Maps; mostrando vista previa en su lugar.');
-          };
-
-          document.body.appendChild(script);
-        }
-
-        function showMap () {
-          // If no API key, do not attempt to show the interactive map
-          if (!GMAPS_API_KEY || GMAPS_API_KEY.includes('AIzaSyB5qomquPBUFCWQ59fCbypase_7odrJU_s')) {
-            if (previewImg) {
-              previewImg.src = '/maps.png';
-              previewImg.classList.remove('hidden');
-            }
-            alert('Mapa interactivo no disponible: falta la clave de Google Maps.');
-            return;
-          }
-
-          // hide preview and show map container (mapEl will be shown after the API initializes)
-          if (previewImg) previewImg.classList.add('hidden');
-          if (mapEl) mapEl.classList.remove('hidden');
-
-          loadGoogleMapsScript();
-        }
-
-        // update the Google Maps search link in case ADDRESS changes
-        const mapsAnchor = document.querySelector('a[href*="google.com/maps/search"]') as HTMLAnchorElement | null;
-        if (mapsAnchor) {
-          mapsAnchor.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ADDRESS)}`;
-        }
-
-        if (loadBtn) {
-          loadBtn.addEventListener('click', showMap);
-          // keyboard accessibility for Enter/Space
-          loadBtn.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          showMap();
-            }
-          });
-        }
-          })();
         </script>
       </div>
 
       <div class="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-white/60">Vacunacion</p>
-        <p class="mt-2 text-lg font-semibold">Campanas activas</p>
-        <p class="text-sm text-white/70">
-          Revisa los calendarios vigentes y acude con tu carnet al punto de vacunacion.
-        </p>
+        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-white/60">Vacunación</p>
+        <p class="mt-2 text-lg font-semibold">Campañas activas</p>
+        <p class="text-sm text-white/70">Haz clic en la imagen para ampliarla.</p>
+
         <div class="mt-4 overflow-hidden rounded-2xl border border-white/10 shadow-lg">
-          <img
-            src="/index/sara.jpg"
-            alt="Campana de vacunacion"
-            class="h-64 w-full object-cover"
-            loading="lazy"
-          />
+          <img id="vaccine-img"
+               src="/index/sara.jpg"
+               alt="Campaña de vacunación"
+               class="h-64 w-full object-cover cursor-pointer"
+               loading="lazy" />
         </div>
+
         <ul class="mt-4 space-y-2 text-sm text-white/80">
           <li>- Influenza</li>
-          <li>- sarampion </li>
+          <li>- Sarampión</li>
           <li>- Neumo 23</li>
         </ul>
       </div>
@@ -274,6 +150,22 @@
   </div>
 </footer>
 
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const img = document.getElementById("vaccine-img");
+
+    img.addEventListener("click", () => {
+      const modal = document.createElement("div");
+      modal.className = "fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4";
+      modal.innerHTML = `
+        <img src="${img.src}" class="max-w-full max-h-full rounded-xl shadow-2xl" />
+      `;
+      modal.addEventListener("click", () => modal.remove());
+      document.body.appendChild(modal);
+    });
+  });
+</script>
+
 <style is:global>
   body {
     min-height: 100vh;
@@ -281,7 +173,6 @@
     flex-direction: column;
     background-color: #f8f6ff;
   }
-
   body > footer {
     margin-top: auto;
   }
