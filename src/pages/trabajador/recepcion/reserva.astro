@@ -1,0 +1,142 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import Calendar from "../../../components/Calendar.vue";
+import { prisma } from "../../../lib/prisma";
+import { normalizeRut } from "../../../utils/rut";
+
+const user = Astro.locals.user;
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+if (!user.isWorker && !user.isAdmin) {
+  return Astro.redirect("/");
+}
+
+const worker = await prisma.trabajador.findFirst({
+  where: { rut_trabajador: user.rut },
+  include: {
+    especialidad: {
+      select: {
+        nombre_especialidad: true,
+        id_especialidad: true,
+      },
+    },
+  },
+});
+
+if (!worker) {
+  return Astro.redirect(user.isAdmin ? "/admin" : "/perfil");
+}
+
+const specialtyName = worker.especialidad?.nombre_especialidad ?? "Sin especialidad";
+const isReception = worker.cargo === "RECEPCION" || specialtyName === "Recepcion";
+
+if (!isReception && !user.isAdmin) {
+  return Astro.redirect("/trabajador");
+}
+
+const rutQuery = Astro.url.searchParams.get("rut")?.trim() ?? "";
+const normalizedRut = normalizeRut(rutQuery);
+
+if (!normalizedRut) {
+  return Astro.redirect("/trabajador/recepcion");
+}
+
+const patient = await prisma.paciente.findFirst({
+  where: { rut_paciente: normalizedRut },
+  select: {
+    id_paciente: true,
+    primer_nombre_paciente: true,
+    segundo_nombre_paciente: true,
+    apellido_p_paciente: true,
+    apellido_m_paciente: true,
+  },
+});
+
+if (!patient) {
+  return Astro.redirect("/trabajador/recepcion");
+}
+
+const patientName = [
+  patient.primer_nombre_paciente,
+  patient.segundo_nombre_paciente,
+  patient.apellido_p_paciente,
+  patient.apellido_m_paciente,
+]
+  .filter(Boolean)
+  .join(" ");
+
+const reservedSlots = await prisma.disponibilidadTrabajador.findMany({
+  where: { id_paciente: patient.id_paciente, estado: "reservado" },
+  include: {
+    trabajador: {
+      select: {
+        primer_nombre_trabajador: true,
+        segundo_nombre_trabajador: true,
+        apellido_p_trabajador: true,
+        apellido_m_trabajador: true,
+        especialidad: { select: { nombre_especialidad: true } },
+      },
+    },
+  },
+  orderBy: { fecha: "asc" },
+});
+
+const reservedSlotsFormatted = reservedSlots.map((slot) => ({
+  id: slot.id_disponibilidad,
+  fecha: slot.fecha,
+  doctor: [
+    slot.trabajador?.primer_nombre_trabajador,
+    slot.trabajador?.segundo_nombre_trabajador,
+    slot.trabajador?.apellido_p_trabajador,
+    slot.trabajador?.apellido_m_trabajador,
+  ]
+    .filter(Boolean)
+    .join(" "),
+  specialty: slot.trabajador?.especialidad?.nombre_especialidad ?? "Medicina General",
+}));
+
+const derivaciones = await prisma.consultaMedicaSlot.findMany({
+  where: { id_paciente: patient.id_paciente, derivacion: { not: null } },
+  select: { derivacion: true },
+});
+
+const allowedSpecialties = Array.from(
+  new Set([
+    "Medicina General",
+    ...derivaciones.map((d) => d.derivacion?.trim()).filter(Boolean),
+  ])
+);
+---
+
+<Layout title="Reservar hora para paciente">
+  <section class="bg-gradient-to-b from-[#f4f1fb] to-[#e9e2ff] py-12">
+    <div class="mx-auto flex max-w-5xl flex-col gap-8 px-4 sm:px-6">
+      <header class="rounded-3xl bg-[#200934] px-6 py-8 text-white shadow-xl">
+        <p class="text-sm uppercase tracking-[0.35em] text-white/70">Módulo de recepción</p>
+        <h1 class="mt-3 text-3xl font-bold">Asignar reserva</h1>
+        <p class="mt-2 text-white/80">
+        Paciente: <span class="font-semibold text-white">{patientName}</span> · RUT: <span class="font-semibold text-white">{normalizedRut}</span>
+      </p>
+        <p class="mt-1 text-white/70">Profesional: <span class="font-semibold text-white">{worker.primer_nombre_trabajador} {worker.apellido_p_trabajador}</span></p>
+        <p class="mt-1 text-white/70">Cargo: <span class="font-semibold text-white">{worker.cargo}</span></p>
+        <a
+          href="/trabajador/recepcion"
+          class="mt-4 inline-flex items-center rounded-2xl border border-white/30 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+        >
+          Volver a búsqueda
+        </a>
+      </header>
+
+      <Calendar
+        patientRut={normalizedRut}
+        patientName={patientName}
+        reservedSlots={reservedSlotsFormatted}
+        allowedSpecialties={allowedSpecialties}
+        client:load
+      />
+    </div>
+  </section>
+</Layout>

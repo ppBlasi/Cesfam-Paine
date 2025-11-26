@@ -24,6 +24,15 @@ const addDays = (value: Date, days: number) => {
   return copy;
 };
 
+const formatDateKey = (value: Date) => value.toISOString().split("T")[0];
+
+const parseISODate = (value: string | null) => {
+  if (!value) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 const ensureReceptionSession = async (cookies: APIRoute["context"]["cookies"]) => {
   const token = cookies.get(SESSION_COOKIE_NAME)?.value;
 
@@ -55,28 +64,25 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   }
 
   const url = new URL(request.url);
-  const dateParam = url.searchParams.get("date");
   const specialtyParam = url.searchParams.get("specialty")?.trim() || GENERAL_SPECIALTY_NAME;
+  const fromParam = parseISODate(url.searchParams.get("from"));
+  const toParam = parseISODate(url.searchParams.get("to"));
 
-  if (!dateParam || !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-    return jsonResponse(400, { error: "Debes seleccionar una fecha valida (YYYY-MM-DD)." });
+  const today = startOfDay(new Date());
+  const fromDate = fromParam && fromParam > today ? fromParam : today;
+  const defaultTo = addDays(fromDate, 30);
+  const maxTo = addDays(fromDate, 60);
+  let toDate = toParam && toParam > fromDate ? toParam : defaultTo;
+  if (toDate > maxTo) {
+    toDate = maxTo;
   }
-
-  const date = new Date(`${dateParam}T00:00:00`);
-
-  if (Number.isNaN(date.getTime())) {
-    return jsonResponse(400, { error: "La fecha indicada no es valida." });
-  }
-
-  const from = startOfDay(date);
-  const to = addDays(from, 1);
 
   const slots = await prisma.disponibilidadTrabajador.findMany({
     where: {
       estado: "disponible",
       fecha: {
-        gte: from,
-        lt: to,
+        gte: fromDate,
+        lt: addDays(toDate, 1),
       },
       trabajador: {
         estado_trabajador: "Activo",
@@ -87,36 +93,16 @@ export const GET: APIRoute = async ({ request, cookies }) => {
         },
       },
     },
-    orderBy: { fecha: "asc" },
-    include: {
-      trabajador: {
-        select: {
-          primer_nombre_trabajador: true,
-          segundo_nombre_trabajador: true,
-          apellido_p_trabajador: true,
-          apellido_m_trabajador: true,
-          especialidad: { select: { nombre_especialidad: true } },
-        },
-      },
-    },
+    select: { fecha: true },
   });
 
-  const formattedSlots = slots.map((slot) => ({
-    id: slot.id_disponibilidad,
-    time: slot.fecha.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }),
-    doctor: [
-      slot.trabajador.primer_nombre_trabajador,
-      slot.trabajador.segundo_nombre_trabajador,
-      slot.trabajador.apellido_p_trabajador,
-      slot.trabajador.apellido_m_trabajador,
-    ]
-      .filter(Boolean)
-      .join(" "),
-    specialty: slot.trabajador.especialidad?.nombre_especialidad ?? "Medicina General",
-  }));
+  const dates = Array.from(
+    slots
+      .reduce((set, slot) => set.add(formatDateKey(slot.fecha)), new Set<string>())
+  ).sort();
 
   return jsonResponse(200, {
-    date: dateParam,
-    slots: formattedSlots,
+    dates,
+    range: { from: formatDateKey(fromDate), to: formatDateKey(toDate) },
   });
 };

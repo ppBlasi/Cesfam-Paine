@@ -30,7 +30,7 @@ if (!worker) {
 }
 
 const specialtyName = worker.especialidad?.nombre_especialidad ?? "Sin especialidad";
-const isReception = specialtyName === "Recepcion";
+const isReception = worker.cargo === "RECEPCION" || specialtyName === "Recepcion";
 
 if (!isReception && !user.isAdmin) {
   return Astro.redirect("/trabajador");
@@ -192,14 +192,22 @@ const patientFullName = patient
         <>
           {patient ? (
             <section class="rounded-3xl bg-white p-6 shadow-lg">
-              <div class="flex flex-col gap-2 border-b border-[#200934]/10 pb-4">
-                <h2 class="text-xl font-semibold text-[#200934]">Paciente encontrado</h2>
-                <p class="text-sm text-[#200934]/70">
-                  Nombre completo: <span class="font-semibold text-[#200934]">{patientFullName}</span>
-                </p>
-                <p class="text-sm text-[#200934]/70">Correo: {patient.correo_paciente || "Sin informacion"}</p>
-                <p class="text-sm text-[#200934]/70">Telefono: {patient.celular_paciente || "Sin informacion"}</p>
-              </div>
+          <div class="flex flex-col gap-2 border-b border-[#200934]/10 pb-4">
+            <h2 class="text-xl font-semibold text-[#200934]">Paciente encontrado</h2>
+            <p class="text-sm text-[#200934]/70">
+              Nombre completo: <span class="font-semibold text-[#200934]">{patientFullName}</span>
+            </p>
+            <p class="text-sm text-[#200934]/70">Correo: {patient.correo_paciente || "Sin informacion"}</p>
+            <p class="text-sm text-[#200934]/70">Telefono: {patient.celular_paciente || "Sin informacion"}</p>
+            <div class="mt-3">
+              <a
+                href={`/trabajador/recepcion/reserva?rut=${encodeURIComponent(normalizedRut)}`}
+                class="inline-flex items-center rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#200934]"
+              >
+                Reservar hora
+              </a>
+            </div>
+          </div>
 
               {reservations && reservations.length > 0 ? (
                 <ul class="mt-4 space-y-3" data-reservations-list>

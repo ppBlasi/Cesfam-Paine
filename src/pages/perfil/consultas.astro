@@ -49,7 +49,7 @@ const formatDateTime = (value: Date | null | undefined) =>
 
 const consultaRows = consultas.map((c) => ({
   id: c.id_consulta,
-  fecha: c.created_at ?? c.disponibilidad?.fecha ?? c.fecha,
+  fecha: c.created_at ?? c.disponibilidad?.fecha ?? null,
   resumen: c.resumen,
   especialidad: c.disponibilidad?.trabajador?.especialidad?.nombre_especialidad ?? "Medicina General",
   doctor: [
