@@ -3,38 +3,196 @@ import Layout from '../layouts/Layout.astro';
 ---
 
 <Layout title="CESFAM">
+  <!-- Sección principal estilo panel admin -->
+  <section class="bg-gradient-to-b from-[#200934] via-[#2d1250] to-[#200934] py-16">
+    <div class="mx-auto flex max-w-6xl flex-col gap-10 px-4 sm:px-6 text-white">
 
-  <div class="flex flex-wrap justify-center gap-5 pt-3 px-5">
-    <img class="h-[9rem] w-[22rem]" src="/index/campana.webp" alt="campana" />
-    <img class="h-[9rem] w-[26rem]" src="/index/vacunate.webp" alt="vacunate" />
-    <img class="h-[9rem] w-[22rem]" src="/index/teletriage.webp" alt="teletriage" />
-  </div>
+      <!-- Mensaje de bienvenida -->
+      <header class="text-center">
+        <p class="text-sm uppercase tracking-widest text-white/70">Bienvenido al sistema del CESFAM</p>
+        <h1 class="mt-3 text-4xl font-bold sm:text-5xl">Accede a tu portal de salud</h1>
+        <p class="mt-4 max-w-2xl mx-auto text-white/80">
+          Gestiona tus reservas, revisa información importante y mantente al día con las novedades del CESFAM.
+        </p>
 
-  <div class="flex justify-center">
-    <img class="pt-3 px-5 h-[32rem] w-[75rem] max-w-full object-cover" src="/about/hospital.webp" alt="Foto del hospital" />
-  </div> 
+        <a
+          href="/login"
+          class="inline-block mt-6 rounded-2xl bg-white/90 px-8 py-3 text-[#200934] font-semibold shadow-lg transition hover:bg-white"
+        >
+          Inicia sesión aquí
+        </a>
+      </header>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 px-5 py-6">
-    
-    <div class="rounded-lg shadow-md overflow-hidden">
-      <div class="bg-[#200934] text-white text-center py-2 text-xl font-semibold">
-        NOTICIAS
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4">
-        <img class="h-[9rem] w-full object-cover rounded-md" src="/index/1.jpg" alt="1" />
-        <img class="h-[9rem] w-full object-cover rounded-md" src="/index/2.jpg" alt="2" />
-        <img class="h-[9rem] w-full object-cover rounded-md" src="/index/3.jpg" alt="3" />
-      </div>
+
+      <!-- CONTENIDO REUBICADO -->
+      <section class="grid grid-cols-1 gap-6 md:grid-cols-2 mt-6">
+
+        <!-- Card 1 -->
+        <article class="rounded-3xl bg-white/95 p-6 shadow-2xl backdrop-blur">
+          <div class="bg-[#200934] text-white text-center py-2 rounded-xl font-semibold shadow-md">
+            Campaña informativa
+          </div>
+          <img class="h-[9rem] w-full object-cover rounded-xl mt-4 shadow-md"
+               src="/index/campana.webp" alt="campaña" />
+        </article>
+
+        <!-- Card 2 -->
+        <article class="rounded-3xl bg-white/95 p-6 shadow-2xl backdrop-blur">
+          <div class="bg-[#200934] text-white text-center py-2 rounded-xl font-semibold shadow-md">
+            Vacúnate a tiempo
+          </div>
+          <img class="h-[9rem] w-full object-cover rounded-xl mt-4 shadow-md"
+               src="/index/vacunate.webp" alt="vacunate" />
+        </article>
+
+      </section>
+
+
+      <!-- Carrusel / Banner principal -->
+      <section class="rounded-3xl bg-white/95 shadow-2xl backdrop-blur p-4">
+        <div class="relative overflow-hidden rounded-2xl">
+          <div
+        class="js-carousel relative w-full h-[28rem] flex items-center"
+        role="region"
+        aria-roledescription="carousel"
+        aria-label="Carrusel de imágenes"
+        tabindex="0"
+          >
+        <!-- Track -->
+        <div class="js-track flex w-full h-full transition-transform duration-500 will-change-transform">
+          <div class="min-w-full h-full flex-shrink-0">
+            <img class="w-full h-full object-cover rounded-2xl shadow-lg" src="/about/hospital.webp" alt="Hospital" />
+          </div>
+          <div class="min-w-full h-full flex-shrink-0">
+            <img class="w-full h-full object-cover rounded-2xl shadow-lg" src="/index/campana.webp" alt="Campaña" />
+          </div>
+          <div class="min-w-full h-full flex-shrink-0">
+            <img class="w-full h-full object-cover rounded-2xl shadow-lg" src="/index/vacunate.webp" alt="Vacúnate" />
+          </div>
+        </div>
+
+        <!-- Prev/Next -->
+        <button
+          class="js-prev absolute left-3 top-1/2 -translate-y-1/2 z-10 rounded-full bg-white/90 p-2 shadow-md disabled:opacity-40"
+          aria-label="Anterior"
+        >
+          <svg class="w-5 h-5 text-[#200934]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        <button
+          class="js-next absolute right-3 top-1/2 -translate-y-1/2 z-10 rounded-full bg-white/90 p-2 shadow-md disabled:opacity-40"
+          aria-label="Siguiente"
+        >
+          <svg class="w-5 h-5 text-[#200934]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+
+        <!-- Dots -->
+        <div class="js-dots absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex gap-2" aria-hidden="false"></div>
+          </div>
+        </div>
+
+        <script type="module">
+          (function() {
+        const carousel = document.querySelector('.js-carousel');
+        if (!carousel) return;
+        const track = carousel.querySelector('.js-track');
+        const slides = Array.from(track.children);
+        const prevBtn = carousel.querySelector('.js-prev');
+        const nextBtn = carousel.querySelector('.js-next');
+        const dotsContainer = carousel.querySelector('.js-dots');
+        let index = 0;
+
+        // Create dots
+        slides.forEach((_, i) => {
+          const btn = document.createElement('button');
+          btn.className = 'w-2.5 h-2.5 rounded-full bg-white/60 shadow-sm transition-opacity';
+          btn.setAttribute('aria-label', `Ir a la imagen ${i + 1}`);
+          btn.addEventListener('click', () => {
+            index = i;
+            update();
+          });
+          dotsContainer.appendChild(btn);
+        });
+
+        function update() {
+          track.style.transform = `translateX(-${index * 100}%)`;
+          prevBtn.disabled = index === 0;
+          nextBtn.disabled = index === slides.length - 1;
+
+          dotsContainer.querySelectorAll('button').forEach((b, i) => {
+            b.classList.toggle('bg-white', i === index);
+            b.classList.toggle('bg-white/60', i !== index);
+            b.setAttribute('aria-current', i === index ? 'true' : 'false');
+          });
+        }
+
+        prevBtn.addEventListener('click', () => {
+          if (index > 0) index--;
+          update();
+        });
+
+        nextBtn.addEventListener('click', () => {
+          if (index < slides.length - 1) index++;
+          update();
+        });
+
+        // keyboard navigation (left/right)
+        carousel.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            if (index > 0) index--;
+            update();
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            if (index < slides.length - 1) index++;
+            update();
+          }
+        });
+
+        // Initialize
+        update();
+          })();
+        </script>
+      </section>
+
+
+      <!-- Noticias + Alimentación -->
+      <section class="grid grid-cols-1 gap-6 md:grid-cols-2">
+
+        <!-- Noticias -->
+        <article class="rounded-3xl bg-white/95 shadow-2xl backdrop-blur p-6">
+          <div class="bg-[#200934] text-white text-center py-2 rounded-xl font-semibold shadow-md">
+            Noticias
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+            <img class="h-[9rem] w-full object-cover rounded-xl shadow-md" src="/index/1.jpg" alt="1" />
+            <img class="h-[9rem] w-full object-cover rounded-xl shadow-md" src="/index/2.jpg" alt="2" />
+            <img class="h-[9rem] w-full object-cover rounded-xl shadow-md" src="/index/3.jpg" alt="3" />
+          </div>
+        </article>
+
+        <!-- Alimentación saludable -->
+        <article class="rounded-3xl bg-white/95 shadow-2xl backdrop-blur p-6">
+          <div class="bg-[#200934] text-white text-center py-2 rounded-xl font-semibold shadow-md">
+            Alimentación saludable
+          </div>
+
+          <div class="flex justify-center mt-4">
+            <img
+              class="h-[11rem] w-[22rem] object-cover rounded-xl shadow-md"
+              src="/index/4.png"
+              alt="alimentación"
+            />
+          </div>
+        </article>
+
+      </section>
+
     </div>
-
-    <div class="rounded-lg shadow-md overflow-hidden">
-      <div class="bg-[#200934] text-white text-center py-2 text-xl font-semibold">
-        ALIMENTACIÓN SALUDABLE
-      </div>
-      <div class="flex justify-center p-4">
-        <img class="h-[9rem] w-[22rem] object-cover rounded-md" src="/index/4.png" alt="alimentacion" />
-      </div>
-    </div>
-
-  </div>
+  </section>
 </Layout>
