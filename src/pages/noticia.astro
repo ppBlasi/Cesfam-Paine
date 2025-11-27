@@ -8,13 +8,27 @@ import Layout from "../layouts/Layout.astro";
       <div class="border-t-2 border-gray-300 w-24"></div>
     </section>
 
+    <!-- Modal Imagen Ampliada -->
+    <div
+      id="imageModal"
+      class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-50 p-4"
+    >
+      <img
+        id="modalImage"
+        src=""
+        alt="Imagen ampliada"
+        class="max-h-full max-w-full rounded-lg shadow-lg"
+      />
+    </div>
+
     <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 
+      <!-- Card 1 -->
       <article class="bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
         <img
           src="/noticias/rehabilitacion.png"
-          alt="Apertura del ala de rehabilitación en CESFAM Dr. Miguel Solar"
-          class="w-full h-52 object-cover"
+          alt="Apertura del ala de rehabilitación"
+          class="w-full h-52 object-cover cursor-pointer enlarge-img"
         />
         <div class="p-6 flex flex-col flex-grow">
           <h2 class="text-xl font-semibold text-center mb-2">
@@ -24,25 +38,18 @@ import Layout from "../layouts/Layout.astro";
             Fecha de publicación: 05 de Octubre de 2025
           </p>
           <p class="text-justify flex-grow">
-            El CESFAM Dr. Miguel Solar de Paine inauguró una nueva ala dedicada a la rehabilitación de adultos mayores. 
-            Este espacio busca fortalecer la recuperación funcional, la movilidad y la calidad de vida de los usuarios, 
-            con atención personalizada y equipos de última generación. 
-            Se prioriza la atención integral junto al trabajo de kinesiólogos, terapeutas ocupacionales y técnicos especializados.
+            El CESFAM Dr. Miguel Solar inauguró una nueva ala dedicada a la rehabilitación
+            de adultos mayores. Su objetivo es mejorar la movilidad y calidad de vida.
           </p>
-          <a
-            href="/noticia-rehabilitacion"
-            class="mt-6 inline-block text-center bg-[#200934] text-white px-4 py-2 rounded-lg"
-          >
-            Leer más
-          </a>
         </div>
       </article>
 
+      <!-- Card 2 -->
       <article class="bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
         <img
           src="/noticias/info4.png"
           alt="Alerta por estafas telefónicas"
-          class="w-full h-52 object-cover"
+          class="w-full h-52 object-cover cursor-pointer enlarge-img"
         />
         <div class="p-6 flex flex-col flex-grow">
           <h2 class="text-xl font-semibold text-center mb-2">
@@ -52,26 +59,21 @@ import Layout from "../layouts/Layout.astro";
             Fecha de publicación: 02 de Octubre de 2025
           </p>
           <p class="text-justify flex-grow">
-            Se informa a la comunidad que personas ajenas al CESFAM Dr. Miguel Solar están realizando llamados telefónicos 
-            donde ofrecen “leche nueva” y solicitan datos personales o bancarios. 
-            Recordamos que nuestros programas de alimentación (PNAC y PACAM) no requieren información por teléfono. 
-            Ante cualquier duda, comuníquese directamente con su centro de salud o diríjase al módulo de entrega.
+            Personas ajenas al CESFAM están realizando llamadas donde ofrecen "leche nueva"
+            y solicitan datos personales. Esto es completamente falso.
           </p>
-          <a
-            href="/noticia-estafas"
-            class="mt-6 inline-block text-center bg-[#200934] text-white px-4 py-2 rounded-lg"
-          >
-            Leer más
-          </a>
         </div>
       </article>
 
+      <!-- Card 3 – Carrusel -->
       <article class="bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
-        <img
-          src="/noticias/info5.png"
-          alt="Campaña sobre enfermedades respiratorias"
-          class="w-full h-52 object-cover"
-        />
+        <div class="relative w-full h-52 overflow-hidden">
+          <div class="carousel-3 flex transition-transform duration-500">
+            <img src="/noticias/enr.jpg" class="w-full h-52 object-cover cursor-pointer enlarge-img" />
+            <img src="/noticias/enr2.jpg" class="w-full h-52 object-cover cursor-pointer enlarge-img" />
+          </div>
+        </div>
+
         <div class="p-6 flex flex-col flex-grow">
           <h2 class="text-xl font-semibold text-center mb-2">
             Recomendaciones ante enfermedades respiratorias
@@ -80,20 +82,148 @@ import Layout from "../layouts/Layout.astro";
             Fecha de publicación: 29 de Septiembre de 2025
           </p>
           <p class="text-justify flex-grow">
-            En el marco del aumento de enfermedades respiratorias, el CESFAM Dr. Miguel Solar recuerda la importancia 
-            de reconocer signos de alarma en menores de 5 años y mayores de 65. 
-            Dificultad respiratoria, fiebre persistente o decaimiento son síntomas que requieren atención inmediata. 
-            Se recomienda ventilar los espacios, mantener las vacunas al día y evitar la exposición al frío.
+            Recuerde los signos de alarma: fiebre persistente, dificultad respiratoria
+            o decaimiento. Mantenga ventilación y vacunas al día.
           </p>
-          <a
-            href="/noticia-respiratorias"
-            class="mt-6 inline-block text-center bg-[#200934] text-white px-4 py-2 rounded-lg"
+        </div>
+      </article>
+
+      <!-- Card 4 – Carrusel de 3 imágenes -->
+      <article class="bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
+
+        <!-- Carrusel -->
+        <div class="relative w-full h-52 overflow-hidden">
+          <div class="carousel-4 flex transition-transform duration-500">
+            <img src="/noticias/ds.jpg" class="w-full h-52 object-cover cursor-pointer enlarge-img" />
+            <img src="/noticias/ds3.jpg" class="w-full h-52 object-cover cursor-pointer enlarge-img" />
+            <img src="/noticias/ds4.jpg" class="w-full h-52 object-cover cursor-pointer enlarge-img" />
+          </div>
+
+          <!-- Botones -->
+          <button
+            class="prev-4 absolute left-2 top-1/2 -translate-y-1/2 bg-white/70 p-2 rounded-full shadow"
           >
-            Leer más
-          </a>
+            ‹
+          </button>
+          <button
+            class="next-4 absolute right-2 top-1/2 -translate-y-1/2 bg-white/70 p-2 rounded-full shadow"
+          >
+            ›
+          </button>
+        </div>
+
+        <div class="p-6 flex flex-col flex-grow">
+          <h2 class="text-xl font-semibold text-center mb-2">
+            Colecta móvil de donación de sangre
+          </h2>
+
+          <p class="text-gray-500 text-sm text-center mb-4">
+            Fecha de publicación: 20 de Septiembre de 2025
+          </p>
+
+          <p class="text-justify flex-grow">
+            Invitamos a todos los vecinos de Paine a participar de las colectas móviles
+            del Hospital San Luis de Buin.
+            <br /><br />
+            <strong>Horario:</strong> 10:00 a 15:20 hrs<br />
+            <strong>Fechas:</strong> 26/08 – 22/09 – 28/10 – 25/11 – 22/12
+          </p>
+
+        </div>
+      </article>
+
+      <!-- Card 5 -->
+      <article class="bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
+        <img
+          src="/noticias/sm.jpg"
+          class="w-full h-52 object-cover cursor-pointer enlarge-img"
+        />
+
+        <div class="p-6 flex flex-col flex-grow">
+          <h2 class="text-xl font-semibold text-center mb-2">
+            Exposición de Arte Terapia – Salud Mental
+          </h2>
+
+          <p class="text-gray-500 text-sm text-center mb-4">
+            Fecha de publicación: 15 de Septiembre de 2025
+          </p>
+
+          <p class="text-justify flex-grow">
+            Invitamos a todos los vecinos a conocer los trabajos del taller de arte terapia
+            del programa de Salud Mental del CESFAM.
+            <br /><br />
+            <strong>Fechas:</strong> 24 y 25 de Noviembre<br />
+            <strong>Ubicación:</strong> Centro Cultural de Paine
+          </p>
+        </div>
+      </article>
+
+      <!-- Card 6 -->
+      <article class="bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
+        <img
+          src="/noticias/sal.jpg"
+          class="w-full h-52 object-cover cursor-pointer enlarge-img"
+        />
+
+        <div class="p-6 flex flex-col flex-grow">
+          <h2 class="text-xl font-semibold text-center mb-2">
+            Encestando por la Salud – Campeonato 3x3
+          </h2>
+
+          <p class="text-gray-500 text-sm text-center mb-4">
+            Fecha de publicación: 10 de Septiembre de 2025
+          </p>
+
+          <p class="text-justify flex-grow">
+            Participa del campeonato de básquetbol 3x3, promoviendo la vida saludable,
+            convivencia e integración comunitaria.
+            <br /><br />
+            <strong>Fecha:</strong> Sábado 22 de Noviembre<br />
+            <strong>Horario:</strong> Desde las 09:00 AM<br />
+            <strong>Lugar:</strong> Complejo Deportivo Bavaria
+          </p>
         </div>
       </article>
 
     </section>
   </main>
+
+  <script>
+    /* Modal imagen */
+    const images = document.querySelectorAll(".enlarge-img");
+    const modal = document.getElementById("imageModal");
+    const modalImg = document.getElementById("modalImage");
+
+    images.forEach((img) => {
+      img.addEventListener("click", () => {
+        modalImg.src = img.src;
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+      });
+    });
+
+    modal.addEventListener("click", () => {
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    });
+
+    /* Carruseles */
+    const carouselIndexes = { 3: 0, 4: 0 };
+
+    function moveCarousel(id, direction) {
+      const carousel = document.querySelector(`.carousel-${id}`);
+      const items = carousel.children.length;
+
+      carouselIndexes[id] += direction;
+
+      if (carouselIndexes[id] < 0) carouselIndexes[id] = items - 1;
+      if (carouselIndexes[id] >= items) carouselIndexes[id] = 0;
+
+      const offset = -carouselIndexes[id] * 100;
+      carousel.style.transform = `translateX(${offset}%)`;
+    }
+
+    document.querySelector(".prev-4").onclick = () => moveCarousel(4, -1);
+    document.querySelector(".next-4").onclick = () => moveCarousel(4, +1);
+  </script>
 </Layout>
