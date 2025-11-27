@@ -30,8 +30,9 @@ const ensureNurseSession = async (cookies: APIRoute["context"]["cookies"]) => {
 
   if (
     !worker ||
-    worker.cargo !== "MEDICO" ||
-    worker.especialidad?.nombre_especialidad !== "Enfermeria"
+    (worker.cargo !== "TENS" &&
+      (worker.cargo !== "MEDICO" ||
+        worker.especialidad?.nombre_especialidad !== "Enfermeria"))
   ) {
     return null;
   }

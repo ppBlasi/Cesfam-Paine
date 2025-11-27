@@ -51,11 +51,6 @@ const reservasPendientes = await prisma.reserva.count({
           <h2 class="text-xl font-semibold text-[#200934]">Herramientas rapidas</h2>
           <ul class="mt-4 space-y-3 text-sm text-[#200934]/80">
             <li>
-              <a href="/admin/reservas" class="block rounded-2xl border border-[#200934]/15 px-4 py-3 transition hover:border-[#200934]/30 hover:bg-[#f7f4ff]">
-                Gestionar reservas del dia
-              </a>
-            </li>
-            <li>
               <a href="/admin/trabajadores" class="block rounded-2xl border border-[#200934]/15 px-4 py-3 transition hover:border-[#200934]/30 hover:bg-[#f7f4ff]">
                 Administrar equipo y especialidades
               </a>
@@ -70,11 +65,7 @@ const reservasPendientes = await prisma.reserva.count({
                 Revisar y editar consultas registradas
               </a>
             </li>
-            <li>
-              <a href="/admin/contenido" class="block rounded-2xl border border-[#200934]/15 px-4 py-3 transition hover:border-[#200934]/30 hover:bg-[#f7f4ff]">
-                Actualizar informacion publica
-              </a>
-            </li>
+
           </ul>
         </article>
 

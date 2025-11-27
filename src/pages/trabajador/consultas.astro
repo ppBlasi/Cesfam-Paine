@@ -37,6 +37,8 @@ if (!isDoctor && !user.isAdmin) {
 
 const startOfToday = new Date();
 startOfToday.setHours(0, 0, 0, 0);
+const endOfToday = new Date(startOfToday);
+endOfToday.setHours(23, 59, 59, 999);
 const overdueSlots = await prisma.disponibilidadTrabajador.findMany({
   where: {
     id_trabajador: worker.id_trabajador,
@@ -76,6 +78,7 @@ const upcomingConsultations = await prisma.disponibilidadTrabajador.findMany({
     id_trabajador: worker.id_trabajador,
     fecha: {
       gte: startOfToday,
+      lt: endOfToday,
     },
     estado: {
       in: ["reservado", "confirmado", "ingresado", "en_curso", "no_se_presenta"],
@@ -99,6 +102,8 @@ const upcomingConsultations = await prisma.disponibilidadTrabajador.findMany({
   take: 30,
 });
 
+type ConsultationItem = (typeof upcomingConsultations)[number];
+
 const formatDate = (value: Date) =>
   value.toLocaleDateString("es-CL", {
     weekday: "long",
@@ -111,6 +116,7 @@ const groupedConsultations = upcomingConsultations.reduce((acc, consultation) =>
   const key = consultation.fecha.toISOString().split("T")[0];
   if (!acc.has(key)) {
     acc.set(key, {
+      key,
       date: consultation.fecha,
       items: [],
     });
@@ -118,6 +124,10 @@ const groupedConsultations = upcomingConsultations.reduce((acc, consultation) =>
   acc.get(key)?.items.push(consultation);
   return acc;
 }, new Map());
+
+const groupedConsultationsList = Array.from(groupedConsultations.values()).sort(
+  (a, b) => a.date.getTime() - b.date.getTime(),
+);
 
 const statusLabels: Record<string, string> = {
   reservado: "Reservado",
@@ -161,69 +171,128 @@ const workerFullName = [
         </a>
       </header>
 
-      {upcomingConsultations.length > 0 ? (
-        <div class="space-y-8">
-          <ul class="space-y-4">
-            {upcomingConsultations.map((consultation) => {
-              const patient = consultation.paciente;
-              const patientName = patient
-                ? [
-                    patient.primer_nombre_paciente,
-                    patient.segundo_nombre_paciente,
-                    patient.apellido_p_paciente,
-                    patient.apellido_m_paciente,
-                  ]
-                    .filter(Boolean)
-                    .join(" ")
-                : "Paciente pendiente";
-              const hasIntake = Boolean(consultation.ingreso_enfermeria);
-              const statusLabel = statusLabels[consultation.estado] ?? "Reservado";
-              const slotId = consultation.id_disponibilidad;
-              const patientId = patient?.id_paciente ?? null;
-              return (
-                <li
-                  class="rounded-3xl border border-[#200934]/10 bg-white p-5 shadow-sm"
-                  data-slot-id={slotId}
-                  data-patient-id={patientId ?? ""}
+      {groupedConsultationsList.length > 0 ? (
+        <div class="space-y-6" data-consults-container>
+          <div class="flex flex-col gap-3 rounded-3xl bg-white p-4 shadow-sm">
+            <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p class="text-sm font-semibold text-[#200934]">Pacientes con hora reservada</p>
+                <p class="text-xs text-[#200934]/70">Seccionados por día. Usa los chips para mostrar un día.</p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="rounded-full border border-[#200934]/20 px-3 py-1 text-xs font-semibold text-[#200934] data-[active=true]:bg-[#321355] data-[active=true]:text-white"
+                  data-day-chip="all"
+                  data-active="true"
                 >
-                  <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div>
+                  Todos
+                </button>
+                {groupedConsultationsList.map((group) => {
+                  const label = group.date.toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" });
+                  return (
+                    <button
+                      type="button"
+                      class="rounded-full border border-[#200934]/20 px-3 py-1 text-xs font-semibold text-[#200934] data-[active=true]:bg-[#321355] data-[active=true]:text-white"
+                      data-day-chip={group.key}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {groupedConsultationsList.map((group) => {
+            const label = group.date.toLocaleDateString("es-CL", { dateStyle: "full" });
+            const items: ConsultationItem[] = group.items;
+            return (
+              <section class="space-y-3 rounded-3xl bg-white p-5 shadow-sm" data-consult-group data-day={group.key}>
+                <div class="flex items-center justify-between">
+                  <h2 class="text-lg font-semibold text-[#200934]">{label}</h2>
+                  <p class="text-xs font-semibold uppercase tracking-[0.2em] text-[#200934]/60">
+                    {items.length} {items.length === 1 ? "paciente" : "pacientes"}
+                  </p>
+                </div>
+                <ul class="space-y-4">
+                  {items.map((consultation: ConsultationItem) => {
+                    const patient = consultation.paciente;
+                    const patientName = patient
+                      ? [
+                          patient.primer_nombre_paciente,
+                          patient.segundo_nombre_paciente,
+                          patient.apellido_p_paciente,
+                          patient.apellido_m_paciente,
+                        ]
+                          .filter(Boolean)
+                          .join(" ")
+                      : "Paciente pendiente";
+                    const hasIntake = Boolean(consultation.ingreso_enfermeria);
+                    const statusLabel = statusLabels[consultation.estado] ?? "Reservado";
+                    const slotId = consultation.id_disponibilidad;
+                    const patientId = patient?.id_paciente ?? null;
+                    const searchText = [
+                      patientName,
+                      consultation.nota ?? "",
+                      consultation.fecha.toLocaleString("es-CL", { dateStyle: "full", timeStyle: "short" }),
+                    ]
+                      .join(" ")
+                      .toLowerCase();
+
+                    return (
+                      <li
+                        class="rounded-3xl border border-[#200934]/10 bg-white p-5 shadow-sm"
+                        data-slot-id={slotId}
+                        data-patient-id={patientId ?? ""}
+                        data-search={searchText}
+                      >
+                        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div class="flex flex-col gap-3">
                       <p class="text-lg font-semibold text-[#200934]">{patientName}</p>
                       <p class="text-sm text-[#200934]/70">{consultation.fecha.toLocaleString("es-CL", { dateStyle: "full", timeStyle: "short" })}</p>
                       <p class="text-xs font-semibold text-emerald-600" data-status-label>
                         {statusLabel}
                       </p>
-                      {consultation.nota ? (
-                        <p class="mt-2 text-sm text-[#200934]/80">
-                          Nota del paciente: <span class="font-semibold text-[#200934]">{consultation.nota}</span>
-                        </p>
-                      ) : null}
-                      {hasIntake && consultation.estado !== "no_se_presenta" ? (
-                        <a
-                          href={`/trabajador/consultas/${slotId}`}
-                          class="mt-3 inline-flex rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#200934]"
-                          data-start-consult
-                        >
-                          {consultation.estado === "en_curso" ? "Continuar consulta" : "Iniciar consulta"}
-                        </a>
+                            {consultation.nota ? (
+                              <p class="mt-2 text-sm text-[#200934]/80">
+                                Nota del paciente: <span class="font-semibold text-[#200934]">{consultation.nota}</span>
+                              </p>
+                            ) : null}
+                            {hasIntake && consultation.estado !== "no_se_presenta" ? (
+                              <a
+                                href={`/trabajador/consultas/${slotId}`}
+                                class="mt-3 inline-flex rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#200934]"
+                                data-start-consult
+                              >
+                            {consultation.estado === "en_curso" ? "Continuar consulta" : "Iniciar consulta"}
+                          </a>
+                        ) : null}
+                        {patient ? (
+                          <button
+                            type="button"
+                            class="inline-flex rounded-2xl border border-[#200934]/20 px-4 py-2 text-xs font-semibold text-[#200934] transition hover:bg-[#f4f1fb]"
+                            data-patient-info
+                          >
+                            Ver informacion del paciente
+                          </button>
+                        ) : null}
+                      </div>
+                      {patient ? (
+                        <div class="rounded-2xl bg-[#f4f1fb] p-4 text-sm text-[#200934]">
+                          <p class="font-semibold">Contacto paciente</p>
+                          <p class="text-[#200934]/80">Correo: {patient.correo_paciente ?? "Sin correo"}</p>
+                          <p class="text-[#200934]/80">Telefono: {patient.celular_paciente ?? "Sin telefono"}</p>
+                        </div>
                       ) : null}
                     </div>
-                    {patient ? (
-                      <div class="rounded-2xl bg-[#f4f1fb] p-4 text-sm text-[#200934]">
-                        <p class="font-semibold">Contacto paciente</p>
-                        <p class="text-[#200934]/80">Correo: {patient.correo_paciente ?? "Sin correo"}</p>
-                        <p class="text-[#200934]/80">Telefono: {patient.celular_paciente ?? "Sin telefono"}</p>
-                      </div>
-                    ) : (
-                      <p class="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">
-                        Esta reserva aun no tiene paciente asignado. Verifica con admision.
-                      </p>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            );
+          })}
         </div>
       ) : (
         <p class="rounded-3xl border border-dashed border-[#200934]/20 bg-white p-6 text-sm text-[#200934]/70">
@@ -284,11 +353,28 @@ const workerFullName = [
   </div>
 </div>
 
+<div id="patient-info-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
+  <div class="max-h-[80vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl" data-patient-info-container>
+    <div class="flex items-center justify-between gap-4">
+      <h3 class="text-xl font-semibold text-[#200934]">Historial médico del paciente</h3>
+      <button type="button" class="text-sm font-semibold text-[#200934]" data-patient-info-close>Cerrar</button>
+    </div>
+    <div class="mt-4 space-y-4 text-sm text-[#200934]" data-patient-info-content>
+      <p class="text-[#200934]/70">Cargando informacion...</p>
+    </div>
+  </div>
+</div>
+
 <script type="module">
-  const cards = document.querySelectorAll("[data-slot-id]");
+  const cards = Array.from(document.querySelectorAll("[data-slot-id]"));
+  const consultGroups = Array.from(document.querySelectorAll("[data-consult-group]"));
+  const dayChips = Array.from(document.querySelectorAll("[data-day-chip]"));
   const historyModal = document.getElementById("history-modal");
   const chronicModal = document.getElementById("chronic-modal");
   const confirmModal = document.getElementById("consult-confirm-modal");
+  const patientInfoModal = document.getElementById("patient-info-modal");
+  const patientInfoContent = patientInfoModal?.querySelector("[data-patient-info-content]");
+  const patientInfoClose = patientInfoModal?.querySelector("[data-patient-info-close]");
   const historyContent = historyModal?.querySelector("[data-history-content]");
   const chronicContent = chronicModal?.querySelector("[data-chronic-content]");
   const confirmNo = confirmModal?.querySelector("[data-confirm-no]");
@@ -306,17 +392,107 @@ const workerFullName = [
     const response = await fetch(url, options);
     const result = await response.json().catch(() => null);
     if (!response.ok || !result) {
-      throw new Error(result?.error ?? "Ocurrió un error inesperado.");
+      throw new Error(result?.error ?? "Ocurrio un error inesperado.");
     }
     return result;
   };
 
-  const openHistory = async (patientId) => {
-    if (!historyModal || !historyContent || !patientId) return;
+  const setActiveDay = (key) => {
+    dayChips.forEach((chip) => {
+      chip.dataset.active = chip.dataset.dayChip === key ? "true" : "false";
+    });
+    consultGroups.forEach((group) => {
+      const match = key === "all" || group.dataset.day === key;
+      group.classList.toggle("hidden", !match);
+    });
+  };
+
+  dayChips.forEach((chip) => {
+    chip.addEventListener("click", () => setActiveDay(chip.dataset.dayChip ?? "all"));
+  });
+
+  setActiveDay("all");
+
+  const openPatientInfo = async (patientId, slotId) => {
+    if (!patientInfoModal || !patientInfoContent || !patientId || !slotId) return;
+    toggleModal(patientInfoModal, true);
+    patientInfoContent.innerHTML = `<p class="text-sm text-[#200934]/70">Cargando historial...</p>`;
+    try {
+      const [history, chronic] = await Promise.all([
+        fetchJSON(`/api/consultas/${slotId}/historial?pacienteId=${patientId}`),
+        fetchJSON(`/api/consultas/${slotId}/cronico?pacienteId=${patientId}`),
+      ]);
+
+      const chronicBlock = chronic
+        ? `
+            <section class="rounded-2xl bg-[#f9f7ff] p-3">
+              <p class="text-sm font-semibold text-[#200934]">Condición crónica: ${chronic.chronic ? "Sí" : "No"}</p>
+              <div class="mt-2 space-y-1 text-xs text-[#200934]/80">
+                <p><span class="font-semibold text-[#200934]">Enfermedades:</span> ${chronic.conditions?.length ? chronic.conditions.join(", ") : "Sin información"}</p>
+                <p><span class="font-semibold text-[#200934]">Tratamientos:</span> ${chronic.treatments?.length ? chronic.treatments.join(", ") : "Sin información"}</p>
+                <p><span class="font-semibold text-[#200934]">Medicamentos:</span> ${chronic.medications?.length ? chronic.medications.join(", ") : "Sin información"}</p>
+                <p><span class="font-semibold text-[#200934]">Exámenes recientes:</span> ${chronic.exams?.length ? chronic.exams.join(", ") : "Sin información"}</p>
+              </div>
+            </section>
+          `
+        : "";
+
+      const historyBlock =
+        history?.entries?.length
+          ? history.entries
+              .map(
+                (entry) => `
+                  <article class="rounded-2xl border border-[#200934]/10 p-3">
+                    <p class="text-xs text-[#200934]/60">${new Date(entry.created_at).toLocaleString("es-CL", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}</p>
+                    <p class="text-sm text-[#200934] mt-1">${entry.resumen}</p>
+                    ${
+                      entry.derivacion
+                        ? `<p class="text-xs text-[#200934]/60 mt-1">Derivación: ${entry.derivacion}</p>`
+                        : ""
+                    }
+                    ${
+                      entry.tratamiento
+                        ? `<p class="text-xs text-[#200934]/60 mt-1">Tratamiento: ${
+                            Array.isArray(entry.tratamiento)
+                              ? entry.tratamiento.map((t) => t.medicamento ?? "").filter(Boolean).join(", ")
+                              : entry.tratamiento
+                          }</p>`
+                        : ""
+                    }
+                    ${
+                      entry.orden_examenes
+                        ? `<p class="text-xs text-[#200934]/60 mt-1">Órdenes de exámenes: ${entry.orden_examenes}</p>`
+                        : ""
+                    }
+                  </article>
+                `,
+              )
+              .join("")
+          : `<p class="text-sm text-[#200934]/70">No se encontraron registros previos.</p>`;
+
+      patientInfoContent.innerHTML = `
+        <div class="space-y-3">
+          ${chronicBlock}
+          <section class="space-y-2">
+            <p class="text-sm font-semibold text-[#200934]">Consultas anteriores</p>
+            <div class="space-y-2">${historyBlock}</div>
+          </section>
+        </div>
+      `;
+    } catch (error) {
+      patientInfoContent.innerHTML = `<p class="text-sm text-rose-600">${error instanceof Error ? error.message : "No pudimos cargar la información del paciente."}</p>`;
+    }
+  };
+
+  const openHistory = async (patientId, slotId) => {
+    if (!historyModal || !historyContent || !patientId || !slotId) return;
     toggleModal(historyModal, true);
     historyContent.innerHTML = `<p class="text-sm text-[#200934]/70">Cargando historial...</p>`;
     try {
-      const data = await fetchJSON(`/api/consultas/historial?pacienteId=${patientId}`);
+      const data = await fetchJSON(`/api/consultas/${slotId}/historial?pacienteId=${patientId}`);
       if (!data.entries || data.entries.length === 0) {
         historyContent.innerHTML = `<p class="text-sm text-[#200934]/70">No se encontraron registros de consultas previas.</p>`;
         return;
@@ -332,7 +508,7 @@ const workerFullName = [
               <p class="text-sm text-[#200934] mt-1">${entry.resumen}</p>
               ${
                 entry.derivacion
-                  ? `<p class="text-xs text-[#200934]/60 mt-1">Derivación: ${entry.derivacion}</p>`
+                  ? `<p class="text-xs text-[#200934]/60 mt-1">Derivacion: ${entry.derivacion}</p>`
                   : ""
               }
             </article>
@@ -344,31 +520,31 @@ const workerFullName = [
     }
   };
 
-  const openChronic = async (patientId) => {
-    if (!chronicModal || !chronicContent || !patientId) return;
+  const openChronic = async (patientId, slotId) => {
+    if (!chronicModal || !chronicContent || !patientId || !slotId) return;
     toggleModal(chronicModal, true);
     chronicContent.innerHTML = `<p class="text-sm text-[#200934]/70">Cargando antecedentes...</p>`;
     try {
-      const data = await fetchJSON(`/api/consultas/cronico?pacienteId=${patientId}`);
+      const data = await fetchJSON(`/api/consultas/${slotId}/cronico?pacienteId=${patientId}`);
       const { chronic, conditions, medications, treatments, exams } = data;
       chronicContent.innerHTML = `
-        <p class="text-sm font-semibold text-[#200934]">Paciente ${chronic ? "crónico" : "sin registro crónico"}</p>
+        <p class="text-sm font-semibold text-[#200934]">Paciente ${chronic ? "cronico" : "sin registro cronico"}</p>
         <div class="mt-3 text-sm text-[#200934]/80 space-y-2">
           <div>
             <p class="font-semibold text-[#200934]">Enfermedades</p>
-            <p>${conditions.length ? conditions.join(", ") : "Sin información registrada"}</p>
+            <p>${conditions.length ? conditions.join(", ") : "Sin informacion registrada"}</p>
           </div>
           <div>
             <p class="font-semibold text-[#200934]">Tratamientos</p>
-            <p>${treatments.length ? treatments.join(", ") : "Sin información registrada"}</p>
+            <p>${treatments.length ? treatments.join(", ") : "Sin informacion registrada"}</p>
           </div>
           <div>
             <p class="font-semibold text-[#200934]">Medicamentos</p>
-            <p>${medications.length ? medications.join(", ") : "Sin información registrada"}</p>
+            <p>${medications.length ? medications.join(", ") : "Sin informacion registrada"}</p>
           </div>
           <div>
-            <p class="font-semibold text-[#200934]">Exámenes recientes</p>
-            <p>${exams.length ? exams.join(", ") : "Sin información registrada"}</p>
+            <p class="font-semibold text-[#200934]">Examenes recientes</p>
+            <p>${exams.length ? exams.join(", ") : "Sin informacion registrada"}</p>
           </div>
         </div>
       `;
@@ -390,10 +566,12 @@ const workerFullName = [
     const statusLabel = card.querySelector("[data-status-label]");
     const slotId = Number(card.dataset.slotId);
     const patientId = Number(card.dataset.patientId);
+    const patientInfoButton = card.querySelector("[data-patient-info]");
 
     openButton?.addEventListener("click", () => panel?.classList.toggle("hidden"));
-    historyButton?.addEventListener("click", () => openHistory(patientId));
-    chronicButton?.addEventListener("click", () => openChronic(patientId));
+    historyButton?.addEventListener("click", () => openHistory(patientId, slotId));
+    chronicButton?.addEventListener("click", () => openChronic(patientId, slotId));
+    patientInfoButton?.addEventListener("click", () => openPatientInfo(patientId, slotId));
 
     saveButton?.addEventListener("click", () => {
       if (!summaryField || !slotId || !patientId) return;
@@ -471,4 +649,12 @@ const workerFullName = [
       toggleModal(chronicModal, false);
     }
   });
+
+  patientInfoModal?.addEventListener("click", (event) => {
+    if (event.target === patientInfoModal || (event.target instanceof HTMLElement && event.target.dataset.patientInfoClose !== undefined)) {
+      toggleModal(patientInfoModal, false);
+    }
+  });
+
+  patientInfoClose?.addEventListener("click", () => toggleModal(patientInfoModal, false));
 </script>

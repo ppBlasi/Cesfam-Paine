@@ -4,7 +4,14 @@ import { getSessionFromToken, SESSION_COOKIE_NAME } from "../utils/session";
 
 const title = "Iniciar sesion";
 
+const currentUser = Astro.locals.user;
 const token = Astro.cookies.get(SESSION_COOKIE_NAME)?.value;
+
+if (currentUser) {
+  throw Astro.redirect(
+    currentUser.isAdmin ? "/admin" : currentUser.isWorker ? "/trabajador" : "/perfil",
+  );
+}
 
 if (token) {
   const session = await getSessionFromToken(token);
@@ -64,46 +71,14 @@ if (token) {
         </form>
 
         <div class="mt-8 border-t border-[#200934]/10 pt-6">
-          <button
-            id="recover-toggle"
-            type="button"
+          <a
+            href="https://claveunica.gob.cl/"
+            target="_blank"
+            rel="noopener noreferrer"
             class="flex w-full items-center justify-between rounded-2xl border border-[#200934]/20 bg-white px-4 py-3 text-sm font-semibold text-[#200934] transition hover:border-[#200934]/40 hover:bg-[#f4f1fb] focus:outline-none focus:ring-2 focus:ring-[#200934]/30"
-            aria-expanded="false"
-            aria-controls="recover-panel"
           >
-            Olvidaste tu contrasena?
-            <span class="text-xs uppercase tracking-wide text-[#200934]/70">Recuperar</span>
-          </button>
-
-          <div id="recover-panel" class="mt-4 hidden rounded-2xl border border-dashed border-[#200934]/20 bg-[#f9f7ff] p-5">
-            <form id="recover-form" class="space-y-4">
-              <p class="text-sm text-[#200934]/80">
-                Ingresa tu RUT para enviarte un enlace de recuperacion. Revisa tu bandeja de entrada y sigue las instrucciones.
-              </p>
-              <div>
-                <label for="recover-rut" class="mb-2 block text-sm font-semibold text-[#200934]">RUT</label>
-                <input
-                  id="recover-rut"
-                  name="rut"
-                  type="text"
-                  inputmode="text"
-                  placeholder="12.345.678-9"
-                  class="w-full rounded-2xl border border-[#200934]/20 bg-white px-4 py-3 text-base text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/40"
-                  required
-                />
-              </div>
-              <div class="space-y-2">
-                <button
-                  id="recover-submit"
-                  type="submit"
-                  class="w-full rounded-2xl bg-[#321355] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#200934] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Enviar instrucciones
-                </button>
-                <p id="recover-status" class="min-h-[1.25rem] text-center text-sm font-medium text-[#200934]" aria-live="polite"></p>
-              </div>
-            </form>
-          </div>
+            ¿Olvidaste tu contrasena?
+          </a>
         </div>
       </div>
     </div>
@@ -130,21 +105,14 @@ if (token) {
   const loginStatus = document.querySelector('#login-status');
   const loginButton = document.querySelector('#login-submit');
 
-  const recoverToggle = document.querySelector('#recover-toggle');
-  const recoverPanel = document.querySelector('#recover-panel');
-  const recoverForm = document.querySelector('#recover-form');
-  const recoverStatus = document.querySelector('#recover-status');
-  const recoverButton = document.querySelector('#recover-submit');
+  const recoverToggle = null;
+  const recoverPanel = null;
+  const recoverForm = null;
+  const recoverStatus = null;
+  const recoverButton = null;
 
   attachRutFormatter(document.querySelector('#rut'));
-  attachRutFormatter(document.querySelector('#recover-rut'));
-
-  if (recoverToggle && recoverPanel) {
-    recoverToggle.addEventListener('click', () => {
-      const isHidden = recoverPanel.classList.toggle('hidden');
-      recoverToggle.setAttribute('aria-expanded', (!isHidden).toString());
-    });
-  }
+  attachRutFormatter(null);
 
   if (loginForm && loginButton && loginStatus) {
     loginForm.addEventListener('submit', async (event) => {
@@ -205,52 +173,5 @@ if (token) {
     });
   }
 
-  if (recoverForm && recoverButton && recoverStatus) {
-    recoverForm.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      recoverStatus.textContent = '';
-      const formData = new FormData(recoverForm);
-      const rut = formData.get('rut')?.toString() ?? '';
-
-      if (!rut) {
-        recoverStatus.textContent = 'Ingresa un RUT valido.';
-        recoverStatus.classList.remove('text-emerald-600');
-        recoverStatus.classList.add('text-rose-600');
-        return;
-      }
-
-      const originalText = recoverButton.textContent;
-      recoverButton.textContent = 'Enviando...';
-      recoverButton.disabled = true;
-
-      try {
-        const response = await fetch('/api/recover-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rut }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          recoverStatus.textContent = data.error ?? 'No pudimos procesar tu solicitud.';
-          recoverStatus.classList.remove('text-emerald-600');
-          recoverStatus.classList.add('text-rose-600');
-          return;
-        }
-
-        recoverStatus.textContent = data.message ?? 'Revisa tu correo para continuar.';
-        recoverStatus.classList.remove('text-rose-600');
-        recoverStatus.classList.add('text-emerald-600');
-      } catch (error) {
-        console.error(error);
-        recoverStatus.textContent = 'Error de conexion. Intenta nuevamente.';
-        recoverStatus.classList.remove('text-emerald-600');
-        recoverStatus.classList.add('text-rose-600');
-      } finally {
-        recoverButton.textContent = originalText;
-        recoverButton.disabled = false;
-      }
-    });
-  }
+// Recuperacion delegada a ClaveUnica (sin formulario local).
 </script>

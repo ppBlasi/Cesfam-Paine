@@ -11,14 +11,13 @@ const user = Astro.locals.user as
       rut: string;
       isAdmin: boolean;
       isWorker: boolean;
-      worker:
-        | {
-            id: number;
-            estado: string;
-            specialtyId: number | null;
-            specialtyName: string | null;
-          }
-        | null;
+      worker: {
+        id: number;
+        estado: string;
+        specialtyId: number | null;
+        specialtyName: string | null;
+        cargo?: string;
+      } | null;
     }
   | null;
 
@@ -63,6 +62,7 @@ const menuSections = [
 ];
 
 const primaryCta = { href: "/reserva/reserva", label: "Reserva tu Hora" };
+const showPrimaryCta = !(user?.isWorker);
 
 const isReception =
   user?.worker?.cargo === "RECEPCION" ||
@@ -84,10 +84,7 @@ const accountLinks = user
   : [];
 
 const mobileActions = user
-  ? [
-      { kind: "link" as const, href: primaryCta.href, label: primaryCta.label },
-      ...accountLinks,
-    ]
+  ? [...(showPrimaryCta ? [{ kind: "link" as const, href: primaryCta.href, label: primaryCta.label }] : []), ...accountLinks]
   : [
       { kind: "link" as const, href: primaryCta.href, label: primaryCta.label },
       { kind: "link" as const, href: "/login", label: "Iniciar sesion" },
@@ -103,12 +100,12 @@ const mobileActions = user
   </div>
 
   <div class="relative bg-[#200934] text-white">
-    <div class="flex justify-between px-6 md:px-10 py-3">
+    <div class="flex flex-wrap items-center gap-4 px-4 md:px-8 py-3">
       <a href="/" class="shrink-0">
         <Image src={logo} alt="Logo" class="h-12 w-12" />
       </a>
 
-      <nav class="hidden md:flex flex-1 justify-start gap-6 font-semibold">
+      <nav class="hidden md:flex flex-1 min-w-0 items-center gap-3 lg:gap-4 xl:gap-5 overflow-x-auto md:flex-wrap lg:flex-nowrap whitespace-nowrap font-semibold pr-2">
         {
           menuSections.map((section) =>
             section.kind === "link" ? (
@@ -138,8 +135,8 @@ const mobileActions = user
         }
       </nav>
 
-      <nav class="hidden md:flex items-center gap-3 font-semibold">
-        <HeaderButton href={primaryCta.href}>{primaryCta.label}</HeaderButton>
+      <nav class="hidden md:flex items-center gap-3 font-semibold md:shrink-0">
+        {showPrimaryCta ? <HeaderButton href={primaryCta.href}>{primaryCta.label}</HeaderButton> : null}
         {
           user ? (
             <el-dropdown class="relative">
@@ -176,7 +173,7 @@ const mobileActions = user
         }
       </nav>
 
-      <label for="mobile-toggle" class="md:hidden cursor-pointer p-2">
+      <label for="mobile-toggle" class="md:hidden cursor-pointer p-2 ml-auto">
         <Image src={menu} alt="Abrir menu" class="h-7 w-7" />
       </label>
     </div>

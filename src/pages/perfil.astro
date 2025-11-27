@@ -103,7 +103,9 @@ const cargoLabel =
       ? "Recepcion"
       : user.worker?.cargo === "MEDICO"
         ? "Medico"
-        : null;
+        : user.worker?.cargo === "TENS"
+          ? "TENS"
+          : null;
 ---
 <Layout title="Mi perfil">
   <section class="bg-[#f4f1fb] py-10">

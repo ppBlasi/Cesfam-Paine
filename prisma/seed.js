@@ -229,6 +229,32 @@ async function main() {
     }
   }
 
+  const medicamentosPorEspecialidad = {
+    'Medicina General': ['Paracetamol 500 mg', 'Ibuprofeno 400 mg', 'Amoxicilina 500 mg'],
+    Pediatria: ['Paracetamol pediatrico', 'Salbutamol inhalador', 'Amoxicilina suspension'],
+    Ginecologia: ['Acido folico', 'Hierro polimaltosato', 'Clotrimazol topico'],
+    Psiquiatria: ['Sertralina 50 mg', 'Quetiapina 25 mg', 'Clonazepam 0.5 mg'],
+    Enfermeria: ['Sueroterapia basica', 'Paracetamol 500 mg', 'Ibuprofeno 400 mg'],
+  };
+
+  const especialidadesMedicamentos = (await prisma.especialidad.findMany()).filter(
+    (esp) =>
+      !['Administracion', 'Recepcion'].includes(esp.nombre_especialidad) &&
+      Object.keys(medicamentosPorEspecialidad).includes(esp.nombre_especialidad),
+  );
+
+  for (const esp of especialidadesMedicamentos) {
+    const meds = medicamentosPorEspecialidad[esp.nombre_especialidad] || [];
+    for (const nombre_medicamento of meds) {
+      await ensureRecord(
+        prisma.medicamentoEspecialidad,
+        { nombre_medicamento, id_especialidad: esp.id_especialidad },
+        { nombre_medicamento, id_especialidad: esp.id_especialidad },
+        'id_medicamento_especialidad',
+      );
+    }
+  }
+
   const nurseWorker = await prisma.trabajador.findFirst({
     where: { rut_trabajador: '55555555-5' },
   });

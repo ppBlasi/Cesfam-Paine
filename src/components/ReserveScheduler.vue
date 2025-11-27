@@ -47,12 +47,6 @@
             <option v-for="opt in specialtyOptions" :key="opt" :value="opt">{{ opt }}</option>
           </select>
           <p class="text-xs text-white/70">Selecciona una especialidad para ver el calendario.</p>
-          <p
-            v-if="hasExistingBooking"
-            class="mt-2 rounded-2xl bg-amber-200/20 px-4 py-3 text-xs font-semibold text-amber-100 shadow-inner"
-          >
-            {{ existingBookingMessage }}
-          </p>
         </div>
 
         <div v-if="selectedSpecialty" class="flex flex-col gap-6 lg:flex-row">
@@ -74,25 +68,34 @@
               <span class="block text-base font-normal text-white/80 md:inline">{{ formattedSelectedDate }}</span>
             </h3>
 
-            <p v-if="slotsForSelectedDate.length === 0" class="mt-4 text-sm text-white/70">
-              No hay horarios disponibles para este dia. Selecciona otra fecha.
+            <p
+              v-if="hasExistingBooking"
+              class="mt-3 rounded-2xl bg-amber-200/20 px-4 py-3 text-xs font-semibold text-amber-100 shadow-inner text-white"
+            >
+              {{ existingBookingMessage }}
             </p>
 
-            <div v-else class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <button
-                v-for="slot in slotsForSelectedDate"
-                :key="slot.time"
-                type="button"
-                @click="selectSlot(slot)"
-                :class="slotButtonClass(slot)"
-                :disabled="hasExistingBooking"
-              >
-                <span class="text-xl font-semibold">{{ slot.time }}</span>
-                <span class="mt-1 block text-xs text-white/80">
-                  {{ slot.available }} {{ slot.available === 1 ? "agenda" : "agendas" }} disponibles
-                </span>
-              </button>
-            </div>
+            <template v-if="!hasExistingBooking">
+              <p v-if="slotsForSelectedDate.length === 0" class="mt-4 text-sm text-white/70">
+                No hay horarios disponibles para este dia. Selecciona otra fecha.
+              </p>
+
+              <div v-else class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <button
+                  v-for="slot in slotsForSelectedDate"
+                  :key="slot.time"
+                  type="button"
+                  @click="selectSlot(slot)"
+                  :class="slotButtonClass(slot)"
+                  :disabled="hasExistingBooking"
+                >
+                  <span class="text-xl font-semibold">{{ slot.time }}</span>
+                  <span class="mt-1 block text-xs text-white/80">
+                    {{ slot.available }} {{ slot.available === 1 ? "agenda" : "agendas" }} disponibles
+                  </span>
+                </button>
+              </div>
+            </template>
           </div>
         </div>
 

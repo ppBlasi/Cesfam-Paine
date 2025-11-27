@@ -38,6 +38,7 @@ const formatCargoLabel = (cargo: string) => {
   if (cargo === "ADMIN") return "Administrador";
   if (cargo === "RECEPCION") return "Recepcion";
   if (cargo === "MEDICO") return "Medico";
+  if (cargo === "TENS") return "TENS";
   return cargo || "Sin cargo";
 };
 ---
@@ -350,6 +351,7 @@ const formatCargoLabel = (cargo: string) => {
             <option value="ADMIN">Administrador</option>
             <option value="RECEPCION">Recepcion</option>
             <option value="MEDICO">Medico</option>
+            <option value="TENS">TENS</option>
           </select>
         </div>
 

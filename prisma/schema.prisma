@@ -11,6 +11,7 @@ enum CargoTrabajador {
   ADMIN
   RECEPCION
   MEDICO
+  TENS
 }
 
 model AreaExamen {
@@ -151,6 +152,7 @@ model Especialidad {
   nombre_especialidad String
   trabajadores        Trabajador[]
   examenes            ExamenEspecialidad[]
+  medicamentos        MedicamentoEspecialidad[]
 }
 
 model Empresa {
@@ -247,6 +249,16 @@ model ExamenEspecialidad {
 
   @@map("examen_especialidad")
   @@unique([id_especialidad, nombre_examen], map: "especialidad_examen_unico")
+}
+
+model MedicamentoEspecialidad {
+  id_medicamento_especialidad Int          @id @default(autoincrement())
+  nombre_medicamento          String
+  id_especialidad             Int
+  especialidad                Especialidad @relation(fields: [id_especialidad], references: [id_especialidad])
+
+  @@map("medicamento_especialidad")
+  @@unique([id_especialidad, nombre_medicamento], map: "especialidad_medicamento_unico")
 }
 
 model ConsultaMedicaSlot {

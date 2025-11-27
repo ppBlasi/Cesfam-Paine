@@ -36,8 +36,12 @@ const cargoLabel =
       ? "Recepcion"
       : worker.cargo === "MEDICO"
         ? "Medico"
-        : "Sin cargo";
-const isNurse = worker.cargo === "MEDICO" && specialtyName === "Enfermeria";
+        : worker.cargo === "TENS"
+          ? "TENS"
+          : "Sin cargo";
+const isTens = worker.cargo === "TENS";
+const isNurse =
+  (worker.cargo === "MEDICO" && specialtyName === "Enfermeria") || isTens;
 const isDoctor = worker.cargo === "MEDICO";
 const isReception = worker.cargo === "RECEPCION";
 
@@ -85,16 +89,10 @@ const optionsBySpecialty: Record<string, WorkerOption[]> = {
   ],
   "Medicina General": [
     {
-      title: "Lista de pacientes asignados",
-      description: "Revisa la informacion clave de cada paciente antes de la consulta.",
-    },
-    {
-      title: "Plan de tratamiento",
-      description: "Actualiza indicaciones y recetas entregadas durante la atencion.",
-    },
-    {
-      title: "Derivaciones",
-      description: "Coordina examenes y derivaciones a otras especialidades.",
+      title: "Pacientes con hora reservada",
+      description: "Ve todos los pacientes que tienes asignados para el dia de hoy y realizar consulta.",
+      href: "/trabajador/reservas-dia",
+
     },
   ],
   Enfermeria: [
@@ -141,7 +139,37 @@ const optionsBySpecialty: Record<string, WorkerOption[]> = {
   ],
 };
 
-const specialtyOptions = optionsBySpecialty[specialtyName] ?? defaultOptions;
+const specialtyOptions = isTens
+  ? optionsBySpecialty.Enfermeria
+  : optionsBySpecialty[specialtyName] ?? defaultOptions;
+let toolsOptions: WorkerOption[] = isReception
+  ? [
+      {
+        title: "Busqueda de pacientes",
+        description: "Consulta reservas ingresando el RUT.",
+        href: "/trabajador/recepcion",
+        highlight: "Recepcion",
+      },
+    ]
+  : specialtyOptions;
+
+if (isDoctor) {
+  const patientOptionIndex = toolsOptions.findIndex(
+    (item) => item.title === "Pacientes con hora reservada",
+  );
+  const patientOption =
+    patientOptionIndex >= 0 ? toolsOptions.splice(patientOptionIndex, 1)[0] : null;
+
+  toolsOptions = [
+    ...(patientOption ? [patientOption] : []),
+    {
+      title: "Agenda personal",
+      description: "Consultar todas las horas reservadas que tienes",
+      href: "/trabajador/consultas",
+    },
+    ...toolsOptions,
+  ];
+}
 
 const workerFullName = [
   worker.primer_nombre_trabajador,
@@ -190,22 +218,6 @@ const workerFullName = [
         </div>
       ) : null}
 
-      {isDoctor ? (
-        <div class="flex flex-col gap-3 rounded-3xl bg-white p-6 text-[#200934] shadow-lg sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p class="text-sm font-semibold uppercase tracking-[0.35em] text-[#200934]/60">Consulta medica</p>
-            <h2 class="text-2xl font-semibold">Agenda personal</h2>
-            <p class="text-sm text-[#200934]/70">Consulta las reservas confirmadas y prepara tu jornada de atencion.</p>
-          </div>
-          <a
-            href="/trabajador/consultas"
-            class="inline-flex items-center justify-center rounded-2xl bg-[#321355] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#200934]"
-          >
-            Ver consultas
-          </a>
-        </div>
-      ) : null}
-
       <section class="grid gap-6 md:grid-cols-3">
         <article class="rounded-3xl bg-white p-6 shadow-lg md:col-span-2">
           <h2 class="text-xl font-semibold text-[#200934]">Tus herramientas</h2>
@@ -214,17 +226,7 @@ const workerFullName = [
           </p>
 
           <ul class="mt-5 space-y-4">
-            {(isReception
-              ? [
-                  {
-                    title: "Busqueda de pacientes",
-                    description: "Consulta reservas ingresando el RUT.",
-                    href: "/trabajador/recepcion",
-                    highlight: "Recepcion",
-                  },
-                ]
-              : specialtyOptions
-            ).map((option) => (
+            {toolsOptions.map((option) => (
               <li class="rounded-2xl border border-[#200934]/10 p-4">
                 <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <div>

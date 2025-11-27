@@ -52,14 +52,14 @@
           <p v-if="loadingSlots" class="mt-4 text-sm text-white/70">Cargando horarios...</p>
           <p
             v-else-if="hasExistingBooking"
-            class="mt-4 rounded-2xl bg-amber-200/20 px-4 py-3 text-sm font-semibold text-amber-100 text-[#200934]"
+            class="mt-4 rounded-2xl bg-amber-200/20 px-4 py-3 text-sm font-semibold  text-[#200934]"
           >
             {{ existingBookingMessage }}
           </p>
           <p v-else-if="slots.length === 0" class="mt-4 text-sm text-white/70">
             No hay horarios disponibles para esta fecha. Selecciona otra.
           </p>
-
+          
           <div v-else class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <button
               v-for="slot in slots"

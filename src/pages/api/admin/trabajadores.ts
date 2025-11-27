@@ -21,7 +21,7 @@ const jsonResponse = (status: number, payload: unknown) =>
 const sanitizeString = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 
-const ALLOWED_CARGOS = ["ADMIN", "RECEPCION", "MEDICO"];
+const ALLOWED_CARGOS = ["ADMIN", "RECEPCION", "MEDICO", "TENS"];
 const isValidCargo = (cargo: string) => ALLOWED_CARGOS.includes(cargo);
 
 export const POST: APIRoute = async ({ request, cookies }) => {
@@ -93,7 +93,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   if (!isValidCargo(cargo)) {
     return jsonResponse(400, {
-      error: "Cargo invalido. Debes seleccionar admin, recepcion o medico.",
+      error: "Cargo invalido. Debes seleccionar admin, recepcion, medico o tens.",
     });
   }
 
@@ -465,7 +465,7 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
     }
     if (!isValidCargo(cargoRaw)) {
       return jsonResponse(400, {
-        error: "Cargo invalido. Usa admin, recepcion o medico.",
+        error: "Cargo invalido. Usa admin, recepcion, medico o tens.",
       });
     }
     data.cargo = cargoRaw;

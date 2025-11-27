@@ -76,7 +76,9 @@ export const POST: APIRoute = async ({ request, cookies, params }) => {
   const patientId = Number((payload as Record<string, unknown>).patientId);
   const resumen = String((payload as Record<string, unknown>).resumen ?? "").trim();
   const derivacion = String((payload as Record<string, unknown>).derivacion ?? "").trim() || null;
-  const tratamiento = (payload as Record<string, unknown>).tratamientos ?? [];
+  const tratamiento = Array.isArray((payload as Record<string, unknown>).tratamientos)
+    ? (payload as Record<string, unknown>).tratamientos
+    : [];
   const ordenExamenes = String((payload as Record<string, unknown>).ordenExamenes ?? "").trim() || null;
 
   if (!Number.isInteger(patientId) || patientId <= 0) {
@@ -98,9 +100,11 @@ export const POST: APIRoute = async ({ request, cookies, params }) => {
 
   await ensureConsultTable();
 
+  const tratamientoJson = JSON.stringify(tratamiento);
+
   await prisma.$executeRaw`
     INSERT INTO consulta_medica_slot (id_disponibilidad, id_paciente, resumen, derivacion, tratamiento, orden_examenes)
-    VALUES (${slotId}, ${patientId}, ${resumen}, ${derivacion}, ${JSON.stringify(tratamiento)}, ${ordenExamenes})
+    VALUES (${slotId}, ${patientId}, ${resumen}, ${derivacion}, ${tratamientoJson}::jsonb, ${ordenExamenes})
     ON CONFLICT (id_disponibilidad)
     DO UPDATE SET
       resumen = EXCLUDED.resumen,
