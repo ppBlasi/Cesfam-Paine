@@ -42,6 +42,7 @@ const normalizedRut = rutQuery ? normalizeRut(rutQuery) : "";
 let patient = null;
 let reservations = null;
 let searchError = "";
+const now = new Date();
 
 if (normalizedRut) {
   patient = await prisma.paciente.findFirst({
@@ -61,7 +62,10 @@ if (normalizedRut) {
     searchError = "No encontramos un paciente con ese RUT. Verifica la informacion ingresada.";
   } else {
     const legacyReservations = await prisma.reserva.findMany({
-      where: { paciente: { some: { id_paciente: patient.id_paciente } } },
+      where: {
+        paciente: { some: { id_paciente: patient.id_paciente } },
+        fecha_hora: { fecha_hora: { gte: now } },
+      },
       include: {
         estado: true,
         fecha_hora: true,
@@ -71,7 +75,11 @@ if (normalizedRut) {
     });
 
     const slotReservations = await prisma.disponibilidadTrabajador.findMany({
-      where: { id_paciente: patient.id_paciente },
+      where: {
+        id_paciente: patient.id_paciente,
+        estado: "reservado",
+        fecha: { gte: now },
+      },
       include: {
         trabajador: {
           select: {
@@ -148,7 +156,7 @@ const patientFullName = patient
           Profesional: <span class="font-semibold text-white">{worker.primer_nombre_trabajador} {worker.apellido_p_trabajador}</span>
         </p>
         <p class="mt-1 text-white/70">
-          Especialidad: <span class="font-semibold text-white">{specialtyName}</span>
+          Cargo: <span class="font-semibold text-white">{worker.cargo}</span>
         </p>
         <p class="mt-4 text-sm text-white/60">
           Ingresa el RUT del paciente para revisar sus proximas reservas. Esta herramienta solo es visible para personal de recepcion.
@@ -232,6 +240,14 @@ const patientFullName = patient
                       ) : null}
                       {reservation.kind === "slot" ? (
                         <div class="mt-3 flex flex-wrap gap-2" data-action-container>
+                          <a
+                            href={`/trabajador/recepcion/editar?rut=${encodeURIComponent(normalizedRut)}&availabilityId=${reservation.id}&specialty=${encodeURIComponent(
+                              reservation.specialty ?? ""
+                            )}`}
+                            class="rounded-xl bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 transition hover:bg-amber-200"
+                          >
+                            Editar
+                          </a>
                           <button
                             type="button"
                             class="rounded-xl bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-200"

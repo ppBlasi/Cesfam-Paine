@@ -98,7 +98,13 @@ const patientName = patient
         </article>
       </div>
 
-      <ReserveScheduler client:load patientName={patientName ?? ""} />
+      <ReserveScheduler
+        client:load
+        patientName={patientName ?? ""}
+        rescheduleMode={false}
+        rescheduleAvailabilityId={0}
+        rescheduleSpecialty=""
+      />
     </div>
   </section>
 </Layout>

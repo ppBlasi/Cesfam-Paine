@@ -18,6 +18,7 @@ type ConsultaDetalle = {
   id_consulta: number;
   id_disponibilidad: number | null;
   id_paciente: number | null;
+  id_especialidad_trabajador: number | null;
   resumen: string;
   derivacion: string | null;
   tratamiento: unknown;
@@ -42,6 +43,7 @@ const obtenerConsulta = async (consultaId: number): Promise<ConsultaDetalle | nu
             estado: true,
             trabajador: {
               select: {
+                id_especialidad: true,
                 primer_nombre_trabajador: true,
                 segundo_nombre_trabajador: true,
                 apellido_p_trabajador: true,
@@ -83,6 +85,7 @@ const obtenerConsulta = async (consultaId: number): Promise<ConsultaDetalle | nu
       id_consulta: row.id_consulta,
       id_disponibilidad: row.id_disponibilidad,
       id_paciente: row.id_paciente,
+      id_especialidad_trabajador: row.disponibilidad?.trabajador?.id_especialidad ?? null,
       resumen: row.resumen,
       derivacion: row.derivacion,
       tratamiento: row.tratamiento,
@@ -129,14 +132,36 @@ type ExamenEspecialidadItem = {
   especialidad?: { nombre_especialidad: string } | null;
 };
 
+type MedicamentoEspecialidadItem = { nombre_medicamento: string; especialidad?: { nombre_especialidad: string } | null };
+
 const examenesCatalogo: ExamenEspecialidadItem[] = (prisma as any).examenEspecialidad?.findMany
-  ? await (prisma as any).examenEspecialidad.findMany({
+  ? ((await (prisma as any).examenEspecialidad.findMany({
       orderBy: [{ id_especialidad: "asc" }, { nombre_examen: "asc" }],
       include: { especialidad: { select: { nombre_especialidad: true } } },
-    }) as ExamenEspecialidadItem[]
+    })) as ExamenEspecialidadItem[])
   : [];
 
 const examenesDatalist = Array.from(new Set(examenesCatalogo.map((item) => item.nombre_examen))).sort();
+
+const medicamentosCatalogo: MedicamentoEspecialidadItem[] = (prisma as any).medicamentoEspecialidad?.findMany
+  ? await (prisma as any).medicamentoEspecialidad.findMany({
+      orderBy: [{ id_especialidad: "asc" }, { nombre_medicamento: "asc" }],
+      include: { especialidad: { select: { nombre_especialidad: true } } },
+    })
+  : [];
+
+const medicamentosSugeridos = Array.from(
+  new Set(medicamentosCatalogo.map((item) => item.nombre_medicamento)),
+).sort();
+
+const catalogData = JSON.stringify({
+  medicamentos: medicamentosSugeridos,
+  examenes: examenesCatalogo.map((item) => ({
+    nombre: item.nombre_examen,
+    especialidad: item.especialidad?.nombre_especialidad ?? "",
+  })),
+  tratamientos: Array.isArray(consulta.tratamiento) ? consulta.tratamiento : [],
+});
 ---
 
 <Layout title={`Consulta #${consulta.id_consulta}`}>
@@ -211,52 +236,116 @@ const examenesDatalist = Array.from(new Set(examenesCatalogo.map((item) => item.
                   </option>
                 ) : null}
               </select>
-              <p class="mt-1 text-xs text-[#200934]/60">Usa la opción "Otro" si necesitas registrar una derivación distinta.</p>
+              <p class="mt-1 text-xs text-[#200934]/60">Selecciona la especialidad a la que se derivará al paciente.</p>
             </div>
 
-            <div>
-              <label class="mb-2 block text-sm font-semibold text-[#200934]" for="tratamiento">Tratamientos</label>
-              <textarea
-                id="tratamiento"
-                name="tratamiento"
-                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-sm text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
-                rows="3"
-                placeholder='Ej: ["Paracetamol 500mg cada 8h", "Reposo 48h"] o texto libre'
-              >{typeof consulta.tratamiento === "string" ? consulta.tratamiento : JSON.stringify(consulta.tratamiento ?? "", null, 2)}</textarea>
+            <div class="rounded-2xl bg-[#f4f1fb] px-4 py-3">
+              <div class="flex items-center justify-between">
+                <p class="text-sm font-semibold text-[#200934]">Tratamientos</p>
+                <span class="text-xs font-semibold text-[#200934]/60">Opcional</span>
+              </div>
+              <p class="mt-1 text-xs text-[#200934]/70">Agrega medicamentos con frecuencia y duración, o deja notas libres.</p>
+              <div class="mt-3 grid gap-3 md:grid-cols-3">
+                <label class="flex flex-col gap-1 text-xs font-semibold text-[#200934]">
+                  Medicamento
+                  <input
+                    id="tratamientoMedicamento"
+                    list="medicamentos-list"
+                    class="rounded-xl border border-[#200934]/20 px-3 py-2 text-sm text-[#200934] focus:border-[#200934] focus:outline-none"
+                    placeholder="Ej: Paracetamol 500mg"
+                  />
+                  <datalist id="medicamentos-list">
+                    {medicamentosSugeridos.map((med) => (
+                      <option value={med}></option>
+                    ))}
+                  </datalist>
+                </label>
+                <label class="flex flex-col gap-1 text-xs font-semibold text-[#200934]">
+                  Frecuencia
+                  <input
+                    id="tratamientoFrecuencia"
+                    type="text"
+                    class="rounded-xl border border-[#200934]/20 px-3 py-2 text-sm text-[#200934] focus:border-[#200934] focus:outline-none"
+                    placeholder="Ej: 1 cada 8 horas"
+                  />
+                </label>
+                <label class="flex flex-col gap-1 text-xs font-semibold text-[#200934]">
+                  Duración
+                  <input
+                    id="tratamientoDuracion"
+                    type="text"
+                    class="rounded-xl border border-[#200934]/20 px-3 py-2 text-sm text-[#200934] focus:border-[#200934] focus:outline-none"
+                    placeholder="Ej: 7 días"
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                class="mt-3 inline-flex rounded-2xl bg-[#321355] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#200934]"
+                data-add-treatment
+              >
+                Agregar tratamiento
+              </button>
+              {medicamentosSugeridos.length === 0 && (
+                <p class="mt-2 text-xs text-rose-600">No hay medicamentos sugeridos para esta especialidad.</p>
+              )}
+              <ul class="mt-4 space-y-2 text-sm text-[#200934]" data-treatment-list></ul>
+              <div class="mt-4">
+                <label class="mb-1 block text-xs font-semibold text-[#200934]" for="tratamientoLibre">Notas libres de tratamiento</label>
+                <textarea
+                  id="tratamientoLibre"
+                  class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-sm text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+                  rows="3"
+                  placeholder="Ej: Ajustar dosis según evolución, controles en 48h"
+                >{typeof consulta.tratamiento === "string" ? consulta.tratamiento : ""}</textarea>
+                <p class="mt-1 text-xs text-[#200934]/60">Se usarán estos textos solo si no se agregan tratamientos estructurados.</p>
+              </div>
             </div>
 
-            <div>
-              <label class="mb-2 block text-sm font-semibold text-[#200934]" for="ordenExamenes">Órdenes de examen</label>
-              <input
-                id="ordenExamenes"
-                name="ordenExamenes"
+            <div class="rounded-2xl border border-[#200934]/10 bg-[#fdfcff] px-4 py-3">
+              <p class="text-sm font-semibold text-[#200934]">Órdenes de examen</p>
+              <p class="text-xs text-[#200934]/70">Selecciona desde el catálogo o escribe un examen y presiona agregar.</p>
+              <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                <input
+                  id="ordenExamenes"
+                  name="ordenExamenes"
                 type="text"
                 list="ordenes-examenes-list"
                 class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-sm text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
                 placeholder="Ej: Hemograma, perfil lipídico"
                 value={consulta.orden_examenes ?? ""}
-              />
+                />
+                <button
+                  type="button"
+                  class="rounded-2xl bg-[#321355] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#200934]"
+                  data-add-exam
+                >
+                  Agregar examen
+                </button>
+              </div>
               <datalist id="ordenes-examenes-list">
                 {examenesDatalist.map((nombre) => (
                   <option value={nombre}></option>
                 ))}
               </datalist>
-              <p class="mt-1 text-xs text-[#200934]/60">Sugiere exámenes del catálogo; puedes escribir valores separados por comas.</p>
-            </div>
-            <div class="rounded-2xl border border-[#200934]/10 bg-[#f4f1fb] px-4 py-3">
-              <p class="text-sm font-semibold text-[#200934]">Catálogo de exámenes</p>
-              <p class="text-xs text-[#200934]/60">Selecciona para agregar al campo de órdenes.</p>
-              <div class="mt-3 flex flex-wrap gap-2" data-exams-catalog>
-                {examenesCatalogo.map((item) => (
-                  <button
-                    type="button"
-                    class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#200934] shadow-sm transition hover:bg-[#e8e0fb]"
-                    data-exam-suggest={item.nombre_examen}
-                    data-exam-specialty={item.especialidad?.nombre_especialidad ?? ""}
-                  >
-                    {item.nombre_examen} - {item.especialidad?.nombre_especialidad ?? "Sin especialidad"}
-                  </button>
-                ))}
+              <div class="mt-3 flex flex-wrap gap-2" data-exams-selected></div>
+              <div class="mt-3 rounded-2xl border border-dashed border-[#200934]/15 bg-white px-3 py-3">
+                <p class="text-xs font-semibold text-[#200934]">Catálogo según especialidad</p>
+                <div class="mt-2 flex flex-wrap gap-2" data-exams-catalog>
+                  {examenesCatalogo.map((item) => (
+                    <button
+                      type="button"
+                      class="rounded-full bg-[#f4f1fb] px-3 py-1 text-xs font-semibold text-[#200934] transition hover:bg-[#e8e0fb]"
+                      data-exam-suggest={item.nombre_examen}
+                      data-exam-specialty={item.especialidad?.nombre_especialidad ?? ""}
+                    >
+                      {item.nombre_examen}
+                    </button>
+                  ))}
+                  {examenesCatalogo.length === 0 ? (
+                    <span class="text-xs text-[#200934]/60">Sin exámenes configurados para esta especialidad.</span>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -277,6 +366,8 @@ const examenesDatalist = Array.from(new Set(examenesCatalogo.map((item) => item.
   </section>
 </Layout>
 
+<script type="application/json" id="catalog-data" set:html={catalogData}></script>
+
 <script type="module">
   const form = document.querySelector('#consulta-edit-form');
   const statusField = document.querySelector('#consulta-edit-status');
@@ -284,9 +375,19 @@ const examenesDatalist = Array.from(new Set(examenesCatalogo.map((item) => item.
   const consultaIdInput = document.querySelector('#consultaId');
   const resumenInput = document.querySelector('#resumen');
   const derivacionInput = document.querySelector('#derivacion');
-  const tratamientoInput = document.querySelector('#tratamiento');
+  const tratamientoMedicamentoInput = document.querySelector('#tratamientoMedicamento');
+  const tratamientoFrecuenciaInput = document.querySelector('#tratamientoFrecuencia');
+  const tratamientoDuracionInput = document.querySelector('#tratamientoDuracion');
+  const tratamientoLibreInput = document.querySelector('#tratamientoLibre');
+  const treatmentList = document.querySelector('[data-treatment-list]');
+  const addTreatmentButton = document.querySelector('[data-add-treatment]');
   const ordenExamenesInput = document.querySelector('#ordenExamenes');
-  const catalogButtons = Array.from(document.querySelectorAll('[data-exam-suggest]'));
+  const addExamButton = document.querySelector('[data-add-exam]');
+  const selectedExamsContainer = document.querySelector('[data-exams-selected]');
+  const examCatalogButtons = Array.from(document.querySelectorAll('[data-exam-suggest]'));
+  const catalogDataEl = document.querySelector('#catalog-data');
+  const initialExamString =
+    ordenExamenesInput instanceof HTMLInputElement ? ordenExamenesInput.value : '';
 
   const setStatus = (message, isError = false) => {
     if (!statusField) return;
@@ -295,17 +396,165 @@ const examenesDatalist = Array.from(new Set(examenesCatalogo.map((item) => item.
     statusField.classList.toggle('text-emerald-600', !isError);
   };
 
-  catalogButtons.forEach((btn) => {
+  const parseCatalogData = () => {
+    try {
+      return JSON.parse(catalogDataEl?.textContent ?? '{}');
+    } catch (error) {
+      console.error('No se pudo leer cat\u00e1logos de medicamentos/ex\u00e1menes', error);
+      return {};
+    }
+  };
+
+  const { tratamientos = [] } = parseCatalogData();
+
+  const normalizeExam = (value) => value.trim().replace(/\s+/g, ' ');
+  const parseExamList = (value) =>
+    Array.from(new Set((value ?? '').split(',').map(normalizeExam).filter(Boolean)));
+
+  let selectedExams = parseExamList(initialExamString);
+
+  const parseTreatments = (items) => {
+    if (!Array.isArray(items)) return [];
+    return items
+      .map((item) => ({
+        medicamento: String(item?.medicamento ?? item?.nombre ?? '').trim(),
+        frecuencia: String(item?.frecuencia ?? '').trim(),
+        duracion: String(item?.duracion ?? '').trim(),
+      }))
+      .filter((item) => item.medicamento && item.frecuencia && item.duracion);
+  };
+
+  let treatments = parseTreatments(tratamientos);
+
+  const renderSelectedExams = () => {
+    if (ordenExamenesInput) {
+      ordenExamenesInput.value = '';
+    }
+    if (!selectedExamsContainer) return;
+    if (selectedExams.length === 0) {
+      selectedExamsContainer.innerHTML =
+        '<span class="text-xs text-[#200934]/60">Sin ex\u00e1menes seleccionados.</span>';
+      return;
+    }
+    selectedExamsContainer.innerHTML = selectedExams
+      .map(
+        (exam) => `
+          <span class="inline-flex items-center gap-2 rounded-full bg-[#f4f1fb] px-3 py-1 text-xs font-semibold text-[#200934]">
+            <span>${exam}</span>
+            <button
+              type="button"
+              class="text-[#200934]/60 transition hover:text-rose-600"
+              data-remove-exam="${exam}"
+              aria-label="Quitar examen ${exam}"
+            >
+              &times;
+            </button>
+          </span>
+        `,
+      )
+      .join('');
+  };
+
+  const renderTreatments = () => {
+    if (!treatmentList) return;
+    if (treatments.length === 0) {
+      treatmentList.innerHTML = '<li class="text-xs text-[#200934]/60">Sin tratamientos asignados.</li>';
+      return;
+    }
+    treatmentList.innerHTML = treatments
+      .map(
+        (item, index) => `
+        <li class="rounded-2xl border border-[#200934]/10 px-4 py-2 text-sm flex items-center justify-between gap-2">
+          <div>
+            <p class="font-semibold">${item.medicamento}</p>
+            <p class="text-xs text-[#200934]/70">
+              Frecuencia: ${item.frecuencia} \u00b7 Duraci\u00f3n: ${item.duracion}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="text-xs font-semibold text-rose-600"
+            data-remove-treatment="${index}"
+          >
+            Quitar
+          </button>
+        </li>
+      `,
+      )
+      .join('');
+  };
+
+  const addExam = (exam) => {
+    const clean = normalizeExam(exam ?? '');
+    if (!clean) return;
+    const exists = selectedExams.some((item) => item.toLowerCase() === clean.toLowerCase());
+    if (exists) return;
+    selectedExams.push(clean);
+    renderSelectedExams();
+  };
+
+  addExamButton?.addEventListener('click', () => {
+    if (!(ordenExamenesInput instanceof HTMLInputElement)) return;
+    addExam(ordenExamenesInput.value);
+    ordenExamenesInput.value = '';
+  });
+
+  ordenExamenesInput?.addEventListener('keydown', (event) => {
+    if (!(ordenExamenesInput instanceof HTMLInputElement)) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      addExam(ordenExamenesInput.value);
+      ordenExamenesInput.value = '';
+    }
+  });
+
+  examCatalogButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
-      if (!ordenExamenesInput || !(ordenExamenesInput instanceof HTMLInputElement)) return;
       const exam = btn.getAttribute('data-exam-suggest') ?? '';
-      if (!exam) return;
-      const current = ordenExamenesInput.value.trim();
-      const already = current.split(',').map((v) => v.trim().toLowerCase()).includes(exam.toLowerCase());
-      if (already) return;
-      ordenExamenesInput.value = current ? `${current}, ${exam}` : exam;
+      addExam(exam);
     });
   });
+
+  selectedExamsContainer?.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const removeBtn = target.closest('[data-remove-exam]');
+    if (!removeBtn) return;
+    const exam = removeBtn.getAttribute('data-remove-exam') ?? '';
+    selectedExams = selectedExams.filter((item) => item.toLowerCase() !== exam.toLowerCase());
+    renderSelectedExams();
+  });
+
+  addTreatmentButton?.addEventListener('click', () => {
+    const medicamento = tratamientoMedicamentoInput?.value.trim() ?? '';
+    const frecuencia = tratamientoFrecuenciaInput?.value.trim() ?? '';
+    const duracion = tratamientoDuracionInput?.value.trim() ?? '';
+
+    if (!medicamento || !frecuencia || !duracion) {
+      setStatus('Completa medicamento, frecuencia y duraci\u00f3n.', true);
+      return;
+    }
+
+    treatments.push({ medicamento, frecuencia, duracion });
+    setStatus('');
+    renderTreatments();
+
+    if (tratamientoMedicamentoInput) tratamientoMedicamentoInput.value = '';
+    if (tratamientoFrecuenciaInput) tratamientoFrecuenciaInput.value = '';
+    if (tratamientoDuracionInput) tratamientoDuracionInput.value = '';
+  });
+
+  treatmentList?.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const index = target.dataset.removeTreatment;
+    if (index === undefined) return;
+    treatments.splice(Number(index), 1);
+    renderTreatments();
+  });
+
+  renderSelectedExams();
+  renderTreatments();
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -317,12 +566,24 @@ const examenesDatalist = Array.from(new Set(examenesCatalogo.map((item) => item.
       return;
     }
 
+    const resumen = resumenInput?.value.trim() ?? '';
+    if (!resumen) {
+      setStatus('El resumen no puede estar vac\u00edo.', true);
+      return;
+    }
+
+    if (ordenExamenesInput instanceof HTMLInputElement && ordenExamenesInput.value.trim()) {
+      addExam(ordenExamenesInput.value);
+      ordenExamenesInput.value = '';
+    }
+
+    const tratamientoLibre = tratamientoLibreInput?.value.trim() ?? '';
     const payload = {
       consultaId,
-      resumen: resumenInput?.value ?? '',
+      resumen,
       derivacion: derivacionInput?.value ?? '',
-      tratamiento: tratamientoInput?.value ?? '',
-      ordenExamenes: ordenExamenesInput?.value ?? '',
+      tratamiento: treatments.length > 0 ? treatments : tratamientoLibre,
+      ordenExamenes: selectedExams.join(', '),
     };
 
     submitButton && (submitButton.disabled = true);
@@ -341,6 +602,9 @@ const examenesDatalist = Array.from(new Set(examenesCatalogo.map((item) => item.
         return;
       }
       setStatus(data.message ?? 'Consulta actualizada.');
+      setTimeout(() => {
+        window.location.href = '/admin';
+      }, 600);
     } catch (error) {
       console.error(error);
       setStatus('Error de conexi\u00f3n al guardar.', true);

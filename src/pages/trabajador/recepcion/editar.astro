@@ -38,9 +38,11 @@ if (!isReception && !user.isAdmin) {
 }
 
 const rutQuery = Astro.url.searchParams.get("rut")?.trim() ?? "";
+const availabilityId = Number(Astro.url.searchParams.get("availabilityId"));
+const specialtyParam = Astro.url.searchParams.get("specialty") ?? "";
 const normalizedRut = normalizeRut(rutQuery);
 
-if (!normalizedRut) {
+if (!normalizedRut || !Number.isInteger(availabilityId) || availabilityId <= 0) {
   return Astro.redirect("/trabajador/recepcion");
 }
 
@@ -59,6 +61,32 @@ if (!patient) {
   return Astro.redirect("/trabajador/recepcion");
 }
 
+const now = new Date();
+
+const currentReservation = await prisma.disponibilidadTrabajador.findFirst({
+  where: {
+    id_disponibilidad: availabilityId,
+    estado: "reservado",
+    id_paciente: patient.id_paciente,
+    fecha: { gte: now },
+  },
+  include: {
+    trabajador: {
+      select: {
+        primer_nombre_trabajador: true,
+        segundo_nombre_trabajador: true,
+        apellido_p_trabajador: true,
+        apellido_m_trabajador: true,
+        especialidad: { select: { nombre_especialidad: true } },
+      },
+    },
+  },
+});
+
+if (!currentReservation) {
+  return Astro.redirect(`/trabajador/recepcion?rut=${encodeURIComponent(normalizedRut)}`);
+}
+
 const patientName = [
   patient.primer_nombre_paciente,
   patient.segundo_nombre_paciente,
@@ -67,14 +95,30 @@ const patientName = [
 ]
   .filter(Boolean)
   .join(" ");
+
+const currentSpecialty = currentReservation.trabajador?.especialidad?.nombre_especialidad ?? specialtyParam ?? "Medicina General";
+
+const doctorName = [
+  currentReservation.trabajador?.primer_nombre_trabajador,
+  currentReservation.trabajador?.segundo_nombre_trabajador,
+  currentReservation.trabajador?.apellido_p_trabajador,
+  currentReservation.trabajador?.apellido_m_trabajador,
+]
+  .filter(Boolean)
+  .join(" ");
+
+const currentDateLabel = currentReservation.fecha.toLocaleString("es-CL", {
+  dateStyle: "full",
+  timeStyle: "short",
+});
 ---
 
-<Layout title="Reservar hora para paciente">
+<Layout title="Editar reserva">
   <section class="bg-gradient-to-b from-[#f4f1fb] to-[#e9e2ff] py-12">
     <div class="mx-auto flex max-w-5xl flex-col gap-8 px-4 sm:px-6">
       <header class="rounded-3xl bg-[#200934] px-6 py-8 text-white shadow-xl">
         <p class="text-sm uppercase tracking-[0.35em] text-white/70">Modulo de recepcion</p>
-        <h1 class="mt-3 text-3xl font-bold">Asignar reserva</h1>
+        <h1 class="mt-3 text-3xl font-bold">Editar reserva</h1>
         <p class="mt-2 text-white/80">
           Paciente: <span class="font-semibold text-white">{patientName}</span> - RUT:
           <span class="font-semibold text-white">{normalizedRut}</span>
@@ -83,8 +127,11 @@ const patientName = [
           Profesional: <span class="font-semibold text-white">{worker.primer_nombre_trabajador} {worker.apellido_p_trabajador}</span>
         </p>
         <p class="mt-1 text-white/70">Cargo: <span class="font-semibold text-white">{worker.cargo}</span></p>
+        <p class="mt-3 rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-white">
+          Editando reserva actual: <span class="text-white/90">{currentDateLabel}</span>{doctorName ? ` con ${doctorName}` : ""}
+        </p>
         <a
-          href="/trabajador/recepcion"
+          href={`/trabajador/recepcion?rut=${encodeURIComponent(normalizedRut)}`}
           class="mt-4 inline-flex items-center rounded-2xl border border-white/30 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
         >
           Volver a busqueda
@@ -94,11 +141,11 @@ const patientName = [
       <Calendar
         patientRut={normalizedRut}
         patientName={patientName}
-        rescheduleMode={false}
-        rescheduleAvailabilityId={0}
-        rescheduleSpecialty=""
-        rescheduleCurrentDate=""
-        rescheduleDoctorName=""
+        rescheduleMode={true}
+        rescheduleAvailabilityId={currentReservation.id_disponibilidad}
+        rescheduleSpecialty={currentSpecialty}
+        rescheduleCurrentDate={currentReservation.fecha.toISOString()}
+        rescheduleDoctorName={doctorName}
         client:load
       />
     </div>

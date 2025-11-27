@@ -14,6 +14,7 @@ const jsonResponse = (status: number, payload: unknown) =>
   });
 
 const MAX_NOTES_LENGTH = 240;
+const CANCELLED_STATUS = "cancelado";
 
 const ensureReceptionSession = async (cookies: APIRoute["context"]["cookies"]) => {
   const token = cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -84,6 +85,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   try {
     await prisma.$transaction(async (tx) => {
+      await tx.disponibilidadTrabajador.updateMany({
+        where: {
+          id_paciente: patient.id_paciente,
+          estado: "reservado",
+          fecha: { lt: new Date() },
+        },
+        data: { estado: CANCELLED_STATUS },
+      });
+
       const slot = await tx.disponibilidadTrabajador.findUnique({
         where: { id_disponibilidad: disponibilidadId },
         select: {

@@ -70,7 +70,7 @@
 
             <p
               v-if="hasExistingBooking"
-              class="mt-3 rounded-2xl bg-amber-200/20 px-4 py-3 text-xs font-semibold text-amber-100 shadow-inner text-white"
+              class="mt-3 rounded-2xl bg-amber-200/20 px-4 py-3 text-xs font-semibold text-amber-100 shadow-inner "
             >
               {{ existingBookingMessage }}
             </p>
@@ -231,6 +231,7 @@ const selectedSpecialty = ref(GENERAL_SPECIALTY);
 const specialties = ref([]);
 const showConfirm = ref(false);
 const pendingEntry = ref(null);
+const hasManualSpecialtySelection = ref(false);
 
 const fetchAvailability = async () => {
   if (!props.patientName) {
@@ -248,9 +249,14 @@ const fetchAvailability = async () => {
       selectedSpecialty.value = rescheduleSpecialty.value;
     }
     const query = new URLSearchParams();
-    query.set("specialty", selectedSpecialty.value || GENERAL_SPECIALTY);
+    const shouldSendSpecialty = hasManualSpecialtySelection.value || Boolean(rescheduleSpecialty.value);
+    const specialtyToSend = selectedSpecialty.value || GENERAL_SPECIALTY;
+    if (shouldSendSpecialty && specialtyToSend) {
+      query.set("specialty", specialtyToSend);
+    }
 
-    const response = await fetch(`/api/reservas/disponibles?${query.toString()}`);
+    const queryString = query.toString();
+    const response = await fetch(`/api/reservas/disponibles${queryString ? `?${queryString}` : ""}`);
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
       throw new Error(data.error ?? "No pudimos cargar las horas disponibles.");
@@ -472,6 +478,7 @@ const refresh = async () => {
 };
 
 const handleSpecialtyChange = async () => {
+  hasManualSpecialtySelection.value = true;
   loading.value = true;
   error.value = "";
   selectedSlot.value = null;

@@ -29,7 +29,7 @@ if (!worker) {
 }
 
 const specialtyName = worker.especialidad?.nombre_especialidad ?? "Sin especialidad";
-const isDoctor = specialtyName === "Medicina General";
+const isDoctor = worker.cargo === "MEDICO";
 
 if (!isDoctor && !user.isAdmin) {
   return Astro.redirect("/trabajador");
@@ -152,7 +152,7 @@ const workerFullName = [
   <section class="bg-gradient-to-b from-[#f4f1fb] to-[#e9e2ff] py-12">
     <div class="mx-auto flex max-w-5xl flex-col gap-8 px-4 sm:px-6">
       <header class="rounded-3xl bg-[#200934] px-6 py-8 text-white shadow-xl">
-        <p class="text-sm uppercase tracking-[0.35em] text-white/70">Medicina general</p>
+        <p class="text-sm uppercase tracking-[0.35em] text-white/70">{specialtyName}</p>
         <h1 class="mt-3 text-3xl font-bold">Consultas agendadas</h1>
         <p class="mt-2 text-white/80">
           Profesional: <span class="font-semibold text-white">{workerFullName}</span>

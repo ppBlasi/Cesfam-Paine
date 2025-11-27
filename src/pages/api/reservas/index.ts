@@ -19,6 +19,7 @@ const jsonResponse = (status: number, payload: unknown) =>
   });
 
 const MAX_NOTES_LENGTH = 240;
+const CANCELLED_STATUS = "cancelado";
 
 const getAllowedSpecialties = async (patientId: number) => {
   const allowed = new Set<string>([GENERAL_SPECIALTY_NAME]);
@@ -64,6 +65,20 @@ const ensurePatientSession = async (cookies: APIRoute["context"]["cookies"]) => 
   return session;
 };
 
+const cancelPastBookings = async (patientId: number) => {
+  const now = new Date();
+  await prisma.disponibilidadTrabajador.updateMany({
+    where: {
+      id_paciente: patientId,
+      estado: "reservado",
+      fecha: { lt: now },
+    },
+    data: {
+      estado: CANCELLED_STATUS,
+    },
+  });
+};
+
 export const POST: APIRoute = async ({ request, cookies }) => {
   const session = await ensurePatientSession(cookies);
 
@@ -103,6 +118,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       error: "No encontramos tu ficha de paciente. Acude al CESFAM para actualizar tus datos.",
     });
   }
+
+  await cancelPastBookings(patient.id_paciente);
 
   const allowedSpecialtiesSet = await getAllowedSpecialties(patient.id_paciente);
 

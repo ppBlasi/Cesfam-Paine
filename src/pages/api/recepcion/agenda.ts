@@ -3,14 +3,9 @@ export const runtime = "nodejs";
 
 import type { APIRoute } from "astro";
 import { prisma } from "../../../lib/prisma";
-import {
-  GENERAL_SPECIALTY_NAME,
-  getWorkerByRut,
-} from "../../../utils/admin";
-import {
-  SESSION_COOKIE_NAME,
-  getSessionFromToken,
-} from "../../../utils/session";
+import { ADMIN_CARGO, GENERAL_SPECIALTY_NAME, getWorkerByRut } from "../../../utils/admin";
+import { normalizeRut } from "../../../utils/rut";
+import { SESSION_COOKIE_NAME, getSessionFromToken } from "../../../utils/session";
 
 const jsonResponse = (status: number, payload: unknown) =>
   new Response(JSON.stringify(payload), {
@@ -37,8 +32,7 @@ const addDays = (value: Date, days: number) => {
   return copy;
 };
 
-const formatDateKey = (value: Date) =>
-  value.toISOString().split("T")[0];
+const formatDateKey = (value: Date) => value.toISOString().split("T")[0];
 
 const formatTime = (value: Date) =>
   value.toLocaleTimeString("es-CL", {
@@ -85,7 +79,7 @@ const getAllowedSpecialties = async (patientId: number | null) => {
   return { allowed, preferredSpecialty };
 };
 
-const ensurePatientSession = async (cookies: APIRoute["context"]["cookies"]) => {
+const ensureReceptionSession = async (cookies: APIRoute["context"]["cookies"]) => {
   const token = cookies.get(SESSION_COOKIE_NAME)?.value;
 
   if (!token) {
@@ -101,30 +95,49 @@ const ensurePatientSession = async (cookies: APIRoute["context"]["cookies"]) => 
 
   const worker = await getWorkerByRut(session.usuario.rut);
 
-  if (worker) {
+  if (!worker || (worker.cargo !== "RECEPCION" && worker.cargo !== ADMIN_CARGO)) {
     return null;
   }
 
-  return session;
+  return worker;
 };
 
 export const GET: APIRoute = async ({ request, cookies }) => {
-  const session = await ensurePatientSession(cookies);
+  const worker = await ensureReceptionSession(cookies);
 
-  if (!session) {
-    return jsonResponse(401, { error: "Debes iniciar sesion como paciente para ver las horas disponibles." });
+  if (!worker) {
+    return jsonResponse(403, { error: "Debes iniciar sesion como recepcion para ver las horas disponibles." });
   }
 
   const url = new URL(request.url);
+  const rutParam = url.searchParams.get("rut")?.trim() ?? "";
   const specialtyParamRaw = url.searchParams.get("specialty");
   const specialtyParam = specialtyParamRaw?.trim() ?? "";
   const hasSpecialtyParam = url.searchParams.has("specialty") && Boolean(specialtyParam);
   const fromParam = parseISODate(url.searchParams.get("from"));
   const toParam = parseISODate(url.searchParams.get("to"));
 
+  if (!rutParam) {
+    return jsonResponse(400, { error: "Debes indicar el RUT del paciente." });
+  }
+
+  const normalizedRut = normalizeRut(rutParam);
+
+  if (!normalizedRut) {
+    return jsonResponse(400, { error: "El RUT ingresado no es valido." });
+  }
+
+  const patient = await prisma.paciente.findFirst({
+    where: { rut_paciente: normalizedRut },
+    select: { id_paciente: true },
+  });
+
+  if (!patient) {
+    return jsonResponse(404, { error: "No encontramos un paciente con ese RUT." });
+  }
+
   const today = startOfDay(new Date());
   const defaultTo = addDays(today, 14);
-
   const fromDate = fromParam && fromParam > today ? fromParam : today;
   let toDate = toParam && toParam > fromDate ? toParam : defaultTo;
   const maxRangeEnd = addDays(fromDate, 30);
@@ -132,20 +145,15 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     toDate = maxRangeEnd;
   }
 
-  const now = new Date();
-
-  const patient = await prisma.paciente.findFirst({
-    where: { rut_paciente: session.usuario.rut },
-    select: { id_paciente: true },
-  });
-
-  const { allowed: allowedSpecialtiesSet, preferredSpecialty } = await getAllowedSpecialties(patient?.id_paciente ?? null);
+  const { allowed: allowedSpecialtiesSet, preferredSpecialty } = await getAllowedSpecialties(patient.id_paciente);
   const allowedSpecialties = Array.from(allowedSpecialtiesSet);
   const allowedNormalized = new Set(allowedSpecialties.map((name) => name.toLowerCase()));
   const requestedSpecialty =
     hasSpecialtyParam && allowedNormalized.has(specialtyParam.toLowerCase()) && specialtyParam
       ? specialtyParam
       : null;
+
+  const now = new Date();
 
   const rawSlots = await prisma.disponibilidadTrabajador.findMany({
     where: {
@@ -200,42 +208,40 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     specialtiesList.some((name) => name.toLowerCase() === preferredSpecialty.toLowerCase())
       ? preferredSpecialty
       : null;
-  const selectedSpecialty =
+  const resolvedSpecialty =
     (requestedSpecialty && normalizedSpecialties.has(requestedSpecialty.toLowerCase()) && requestedSpecialty) ||
     preferredFromAvailability ||
     (specialtiesList.find((name) => allowedNormalized.has(name.toLowerCase())) ?? GENERAL_SPECIALTY_NAME);
-  const normalizedSelected = selectedSpecialty.toLowerCase();
+  const normalizedResolved = resolvedSpecialty.toLowerCase();
 
-  const existingBooking = patient
-    ? await prisma.disponibilidadTrabajador.findFirst({
-        where: {
-          id_paciente: patient.id_paciente,
-          estado: "reservado",
-          fecha: { gte: now },
-          trabajador: {
-            especialidad: { nombre_especialidad: selectedSpecialty },
-          },
-        },
-        orderBy: { fecha: "asc" },
+  const existingBooking = await prisma.disponibilidadTrabajador.findFirst({
+    where: {
+      id_paciente: patient.id_paciente,
+      estado: "reservado",
+      fecha: { gte: now },
+      trabajador: {
+        especialidad: { nombre_especialidad: resolvedSpecialty },
+      },
+    },
+    orderBy: { fecha: "asc" },
+    select: {
+      id_disponibilidad: true,
+      fecha: true,
+      trabajador: {
         select: {
-          id_disponibilidad: true,
-          fecha: true,
-          trabajador: {
-            select: {
-              primer_nombre_trabajador: true,
-              segundo_nombre_trabajador: true,
-              apellido_p_trabajador: true,
-              apellido_m_trabajador: true,
-              especialidad: { select: { nombre_especialidad: true } },
-            },
-          },
+          primer_nombre_trabajador: true,
+          segundo_nombre_trabajador: true,
+          apellido_p_trabajador: true,
+          apellido_m_trabajador: true,
+          especialidad: { select: { nombre_especialidad: true } },
         },
-      })
-    : null;
+      },
+    },
+  });
 
   const slots = rawSlots.filter((slot) => {
     const slotSpecialty = slot.trabajador.especialidad?.nombre_especialidad ?? GENERAL_SPECIALTY_NAME;
-    return slotSpecialty.toLowerCase() === normalizedSelected;
+    return slotSpecialty.toLowerCase() === normalizedResolved;
   });
 
   const grouped = new Map<
@@ -319,7 +325,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
       to: formatDateKey(toDate),
     },
     specialties: specialtiesList,
-    selectedSpecialty,
+    selectedSpecialty: resolvedSpecialty,
     totalSlots: slots.length,
     days,
     existingBooking: existingBooking
@@ -334,8 +340,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
           ]
             .filter(Boolean)
             .join(" "),
-          specialty:
-            existingBooking.trabajador?.especialidad?.nombre_especialidad ?? GENERAL_SPECIALTY_NAME,
+          specialty: existingBooking.trabajador?.especialidad?.nombre_especialidad ?? GENERAL_SPECIALTY_NAME,
         }
       : null,
   });
