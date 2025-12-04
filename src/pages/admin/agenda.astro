@@ -1,7 +1,7 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import { prisma } from "../../lib/prisma";
-import { ADMIN_CARGO } from "../../utils/admin";
+import type { Prisma } from "@prisma/client";
 
 const user = Astro.locals.user;
 
@@ -9,13 +9,24 @@ if (!user?.isAdmin) {
   return Astro.redirect("/");
 }
 
-const nonAdminFilter = {
-  cargo: "MEDICO",
+const medicoFilter: Prisma.TrabajadorWhereInput = {
+  cargo: { equals: "MEDICO" },
   id_especialidad: { not: null },
 };
 
+const especialidades = await prisma.especialidad.findMany({
+  orderBy: { nombre_especialidad: "asc" },
+});
+
+const selectedSpecialty = Astro.url.searchParams.get("especialidad");
+const doctorSearchTerm = Astro.url.searchParams.get("medico")?.trim() ?? "";
+const specialtyFilter: Prisma.TrabajadorWhereInput =
+  selectedSpecialty && selectedSpecialty !== "todas"
+    ? { id_especialidad: Number(selectedSpecialty) || undefined }
+    : {};
+
 const trabajadores = await prisma.trabajador.findMany({
-  where: nonAdminFilter,
+  where: { ...medicoFilter, ...specialtyFilter },
   orderBy: [
     { estado_trabajador: "asc" },
     { apellido_p_trabajador: "asc" },
@@ -38,7 +49,7 @@ twoWeeksAhead.setDate(twoWeeksAhead.getDate() + 14);
 
 const disponibilidades = await prisma.disponibilidadTrabajador.findMany({
   where: {
-    trabajador: nonAdminFilter,
+    trabajador: medicoFilter,
     fecha: {
       gte: today,
       lte: twoWeeksAhead,
@@ -152,6 +163,14 @@ const groupSlotsByDate = (slots: AvailabilitySlot[]) => {
 <Layout title="Agenda del equipo">
   <section class="bg-gradient-to-b from-[#200934] via-[#2d1250] to-[#200934] py-12">
     <div class="mx-auto flex max-w-6xl flex-col gap-10 px-4 sm:px-6">
+      <div class="flex justify-end">
+        <a
+          href="/admin"
+          class="inline-flex items-center gap-2 rounded-2xl border border-white/30 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/60 hover:bg-white/10"
+        >
+          Volver al panel
+        </a>
+      </div>
       <header class="text-white">
         <p class="text-sm uppercase tracking-[0.35em] text-white/60">Agenda</p>
         <h1 class="mt-3 text-3xl font-bold sm:text-4xl">Asignar dias de trabajo</h1>
@@ -172,6 +191,25 @@ const groupSlotsByDate = (slots: AvailabilitySlot[]) => {
           </div>
 
           <form id="availability-form" class="mt-5 space-y-5">
+            <div>
+              <label for="especialidad" class="mb-2 block text-sm font-semibold text-[#200934]">Filtrar por especialidad</label>
+              <select
+                id="especialidad"
+                name="especialidad"
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-sm text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+                onchange="window.location.href = this.value ? `?especialidad=${this.value}` : window.location.pathname;"
+              >
+                <option value="todas" selected={selectedSpecialty === null || selectedSpecialty === 'todas'}>
+                  Todas las especialidades
+                </option>
+                {especialidades.map((esp) => (
+                  <option value={esp.id_especialidad} selected={String(esp.id_especialidad) === selectedSpecialty}>
+                    {esp.nombre_especialidad}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label for="workerId" class="mb-2 block text-sm font-semibold text-[#200934]">Trabajador</label>
               <select
@@ -265,14 +303,27 @@ const groupSlotsByDate = (slots: AvailabilitySlot[]) => {
 
           {Object.keys(availabilityByWorker).length > 0 ? (
             <>
-              <p
-                id="availability-list-status"
-                class="mt-4 min-h-[1.25rem] text-sm font-medium text-[#200934]"
-                aria-live="polite"
-              ></p>
+              <div class="mt-4 space-y-2">
+                <label for="doctor-search" class="text-sm font-semibold text-[#200934]">Buscar medico en resumen</label>
+                <input
+                  id="doctor-search"
+                  type="search"
+                  value={doctorSearchTerm}
+                  placeholder="Ej: Ana Perez"
+                  class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-sm text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+                />
+                <p
+                  id="availability-list-status"
+                  class="min-h-[1.25rem] text-sm font-medium text-[#200934]"
+                  aria-live="polite"
+                ></p>
+              </div>
               <div id="availability-summary" class="mt-3 space-y-5">
                 {Object.values(availabilityByWorker).map(({ worker, slots }) => (
-                  <details class="rounded-2xl border border-[#200934]/15 p-4" open>
+                  <details
+                    class="rounded-2xl border border-[#200934]/15 p-4"
+                    data-worker-name={formatWorkerName(worker).toLowerCase()}
+                  >
                     <summary class="flex flex-wrap items-center justify-between gap-2 cursor-pointer">
                       <div>
                         <p class="text-sm uppercase tracking-[0.35em] text-[#200934]/60">
@@ -344,6 +395,7 @@ const groupSlotsByDate = (slots: AvailabilitySlot[]) => {
   const submitButton = document.querySelector('#availability-submit');
   const availabilitySummary = document.querySelector('#availability-summary');
   const availabilityListStatus = document.querySelector('#availability-list-status');
+  const doctorSearch = document.querySelector('#doctor-search');
 
   const setStatus = (message, isError = false) => {
     if (!statusField) return;
@@ -369,6 +421,52 @@ const groupSlotsByDate = (slots: AvailabilitySlot[]) => {
     availabilityListStatus.classList.toggle('text-rose-600', Boolean(isError));
     availabilityListStatus.classList.toggle('text-emerald-600', !isError);
   };
+
+  const filterAvailabilityByName = (value) => {
+    if (!availabilitySummary) return;
+
+    const term = (value ?? '').trim().toLowerCase();
+    const entries = availabilitySummary.querySelectorAll('[data-worker-name]');
+    let visibleCount = 0;
+
+    entries.forEach((entry) => {
+      const name = entry.getAttribute('data-worker-name') ?? '';
+      const matches = !term || name.includes(term);
+      entry.classList.toggle('hidden', !matches);
+      if (matches) {
+        visibleCount += 1;
+      }
+    });
+
+    if (!availabilityListStatus) return;
+    if (!term) {
+      setAvailabilityStatus('');
+      return;
+    }
+
+    const message =
+      visibleCount > 0
+        ? `Mostrando ${visibleCount} medico${visibleCount === 1 ? '' : 's'}.`
+        : 'No encontramos medicos con ese nombre.';
+
+    setAvailabilityStatus(message, visibleCount === 0);
+  };
+
+  if (doctorSearch) {
+    filterAvailabilityByName(doctorSearch.value);
+    doctorSearch.addEventListener('input', (event) => {
+      const value = event.target instanceof HTMLInputElement ? event.target.value : '';
+      filterAvailabilityByName(value);
+
+      const url = new URL(window.location.href);
+      if (value.trim()) {
+        url.searchParams.set('medico', value.trim());
+      } else {
+        url.searchParams.delete('medico');
+      }
+      window.history.replaceState({}, '', url);
+    });
+  }
 
   if (form && statusField && submitButton) {
     form.addEventListener('submit', async (event) => {

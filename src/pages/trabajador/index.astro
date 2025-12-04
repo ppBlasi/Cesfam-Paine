@@ -171,6 +171,16 @@ if (isDoctor) {
   ];
 }
 
+if (isTens) {
+  toolsOptions = [
+    {
+      title: "Preingreso",
+      description: "Ingresa al panel de preingresos para recepcionar y preparar a los pacientes del día.",
+      href: "/trabajador/preingreso",
+    },
+  ];
+}
+
 const workerFullName = [
   worker.primer_nombre_trabajador,
   worker.segundo_nombre_trabajador,
@@ -197,32 +207,14 @@ const workerFullName = [
           )}
         </p>
         <p class="mt-1 text-white/70">Estado actual: <span class="font-semibold text-white">{worker.estado_trabajador}</span></p>
-        <p class="mt-4 text-sm text-white/60">
-          Recuerda actualizar tus registros una vez finalizada cada atencion. Si necesitas apoyo, contacta al equipo administrativo.
-        </p>
+        
       </header>
-
-      {isNurse ? (
-        <div class="flex flex-col gap-3 rounded-3xl bg-white p-6 text-[#200934] shadow-lg sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p class="text-sm font-semibold uppercase tracking-[0.35em] text-[#200934]/60">Prioridad enfermeria</p>
-            <h2 class="text-2xl font-semibold">Preingresos del dia</h2>
-            <p class="text-sm text-[#200934]/70">Recepciona a los pacientes antes de derivarlos al profesional tratante.</p>
-          </div>
-          <a
-            href="/trabajador/preingreso"
-            class="inline-flex items-center justify-center rounded-2xl bg-[#321355] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#200934]"
-          >
-            Abrir panel
-          </a>
-        </div>
-      ) : null}
 
       <section class="grid gap-6 md:grid-cols-3">
         <article class="rounded-3xl bg-white p-6 shadow-lg md:col-span-2">
           <h2 class="text-xl font-semibold text-[#200934]">Tus herramientas</h2>
           <p class="mt-1 text-sm text-[#200934]/70">
-            Opciones sugeridas para tu especialidad. Podras personalizar este espacio en futuras actualizaciones.
+            Opciones disponibles para tu especialidad.
           </p>
 
           <ul class="mt-5 space-y-4">
@@ -281,7 +273,7 @@ const workerFullName = [
             </div>
           </dl>
           <p class="mt-4 rounded-2xl bg-[#f4f1fb] px-4 py-3 text-xs text-[#200934]/70">
-            Para cambiar tu contrasena o actualizar datos, comunicate con administracion.
+            Para actualizar tus datos, comunicate con administración.
           </p>
         </aside>
       </section>

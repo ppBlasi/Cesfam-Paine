@@ -1,5 +1,9 @@
 ---
 import Layout from '../layouts/Layout.astro';
+
+const user = Astro.locals.user;
+const isTens = user?.worker?.cargo === 'TENS';
+const isAdmin = user?.isAdmin || user?.worker?.cargo === 'ADMIN';
 ---
 
 <Layout title="CESFAM">
@@ -15,12 +19,61 @@ import Layout from '../layouts/Layout.astro';
           Gestiona tus reservas, revisa información importante y mantente al día con las novedades del CESFAM.
         </p>
 
-        <a
-          href="/login"
-          class="inline-block mt-6 rounded-2xl bg-white/90 px-8 py-3 text-[#200934] font-semibold shadow-lg transition hover:bg-white"
-        >
-          Inicia sesión aquí
-        </a>
+        {user ? (
+          isAdmin ? (
+            <div class="mt-6 flex flex-wrap items-center justify-center gap-4">
+              <a
+                href="/trabajador"
+                class="inline-block rounded-2xl bg-white/90 px-8 py-3 text-[#200934] font-semibold shadow-lg transition hover:bg-white"
+              >
+                Panel del trabajador
+              </a>
+              <a
+                href="/admin"
+                class="inline-block rounded-2xl border border-white/60 px-8 py-3 text-white font-semibold shadow-lg transition hover:bg-white/10"
+              >
+                Panel administrativo
+              </a>
+            </div>
+          ) : isTens ? (
+            <div class="mt-6 flex flex-wrap items-center justify-center gap-4">
+              <a
+                href="/trabajador/preingreso"
+                class="inline-block rounded-2xl bg-white/90 px-8 py-3 text-[#200934] font-semibold shadow-lg transition hover:bg-white"
+              >
+                Ir al preingreso
+              </a>
+              <a
+                href="/trabajador"
+                class="inline-block rounded-2xl border border-white/60 px-8 py-3 text-white font-semibold shadow-lg transition hover:bg-white/10"
+              >
+                Panel del trabajador
+              </a>
+            </div>
+          ) : (
+            <div class="mt-6 flex flex-wrap items-center justify-center gap-4">
+              <a
+                href="/reserva/reserva"
+                class="inline-block rounded-2xl bg-white/90 px-8 py-3 text-[#200934] font-semibold shadow-lg transition hover:bg-white"
+              >
+                Reserva tu hora
+              </a>
+              <a
+                href="/perfil"
+                class="inline-block rounded-2xl border border-white/60 px-8 py-3 text-white font-semibold shadow-lg transition hover:bg-white/10"
+              >
+                Ver perfil
+              </a>
+            </div>
+          )
+        ) : (
+          <a
+            href="/login"
+            class="inline-block mt-6 rounded-2xl bg-white/90 px-8 py-3 text-[#200934] font-semibold shadow-lg transition hover:bg-white"
+          >
+            Inicia sesion aqui
+          </a>
+        )}
       </header>
 
       <section class="grid grid-cols-1 gap-6 md:grid-cols-2 mt-6">
@@ -267,10 +320,10 @@ import Layout from '../layouts/Layout.astro';
 
       <script>
         const zoomModal = document.getElementById('zoomModal');
-        const zoomImg = document.getElementById('zoomImg');
+        const zoomImg = document.getElementById('zoomImg') as HTMLImageElement | null;
 
         if (zoomModal && zoomImg) {
-          document.querySelectorAll('.js-zoom-img').forEach((el) => {
+          document.querySelectorAll<HTMLImageElement>('.js-zoom-img').forEach((el) => {
             el.addEventListener('click', () => {
               zoomImg.src = el.src;
               zoomModal.classList.remove('hidden');
@@ -295,3 +348,8 @@ import Layout from '../layouts/Layout.astro';
     </div>
   </section>
 </Layout>
+
+
+
+
+

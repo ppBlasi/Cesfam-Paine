@@ -61,29 +61,39 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
   context.locals.user = user;
 
   const pathname = context.url.pathname;
-  const isProtectedRoute =
-    pathname.startsWith("/perfil") ||
-    pathname.startsWith("/reserva") ||
-    pathname.startsWith("/trabajador");
-  const isAdminRoute = pathname.startsWith("/admin");
-  const isWorkerRoute = pathname.startsWith("/trabajador");
+  const isPatient = Boolean(user && !user.isWorker && !user.isAdmin);
 
-  if (isProtectedRoute && !user) {
-    return context.redirect("/login");
-  }
+  /**
+   * Ruta -> regla de autorizacion.
+   * Se evalua en orden; al primer match se aplica.
+   */
+  const routeRules: Array<{
+    match: (path: string) => boolean;
+    allow: (user: AuthenticatedUser | null) => boolean;
+  }> = [
+    {
+      match: (path) => path.startsWith("/admin"),
+      allow: (u) => Boolean(u?.isAdmin),
+    },
+    {
+      match: (path) => path.startsWith("/trabajador"),
+      allow: (u) => Boolean(u && (u.isWorker || u.isAdmin)),
+    },
+    {
+      match: (path) => path.startsWith("/perfil") || path.startsWith("/reserva"),
+      allow: () => isPatient,
+    },
+  ];
 
-  if (isAdminRoute) {
-    if (!user) {
-      return context.redirect("/login");
+  for (const rule of routeRules) {
+    if (!rule.match(pathname)) continue;
+    const allowed = rule.allow(user);
+    if (!allowed) {
+      // Si no hay sesion, pide login; si hay pero sin permiso, redirige al home.
+      return context.redirect(user ? "/" : "/login");
     }
-
-    if (!user.isAdmin) {
-      return context.redirect("/");
-    }
-  }
-
-  if (isWorkerRoute && user && !user.isWorker && !user.isAdmin) {
-    return context.redirect("/");
+    // ya se aplico la regla, no hace falta evaluar otras
+    break;
   }
 
   return next();

@@ -14,9 +14,9 @@ const especialidades = await prisma.especialidad.findMany({
 ---
 
 <Layout title="Gestion de trabajadores">
-  <section class="bg-gradient-to-b from-[#200934] via-[#2d1250] to-[#200934] py-12">
-    <div class="mx-auto flex max-w-5xl flex-col gap-10 px-4 sm:px-6">
-      <header class="text-white">
+  <section class="bg-gradient-to-b from-[#200934] via-[#2d1250] to-[#200934] min-h-screen py-16 flex items-center justify-center">
+    <div class="mx-auto flex max-w-5xl flex-col items-center gap-10 px-4 sm:px-6">
+      <header class="text-white text-center">
         <p class="text-sm uppercase tracking-[0.35em] text-white/60">Equipo</p>
         <h1 class="mt-3 text-3xl font-bold sm:text-4xl">Administrar trabajadores</h1>
         <p class="mt-2 max-w-2xl text-white/80">
@@ -24,8 +24,28 @@ const especialidades = await prisma.especialidad.findMany({
         </p>
       </header>
 
-      <section class="grid gap-6 lg:grid-cols-5">
-        <article class="lg:col-span-3 rounded-3xl bg-white p-6 shadow-xl">
+      <section class="grid w-full max-w-4xl gap-6 lg:grid-cols-5 mx-auto justify-items-center">
+        <article class="lg:col-span-5 w-full max-w-2xl rounded-3xl bg-white p-6 shadow-xl">
+          <div class="mb-4 flex justify-end">
+            <a
+              href="/admin"
+              class="inline-flex items-center gap-2 rounded-2xl border border-[#200934]/20 px-4 py-2 text-sm font-semibold text-[#200934] transition hover:border-[#200934]/40 hover:bg-white"
+            >
+              ← Volver al panel
+            </a>
+          </div>
+          <div>
+            <h2 class="text-xl font-semibold text-[#200934]">Gestionar listado</h2>
+            <p class="mt-1 text-sm text-[#200934]/70">
+              Consulta, filtra y edita trabajadores desde la pagina dedicada.
+            </p>
+          </div>
+          <a
+            href="/admin/trabajadores/listado"
+            class="mt-6 inline-flex items-center justify-center rounded-2xl bg-[#321355] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#200934] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355]"
+          >
+            Abrir listado y edicion
+          </a>
           <h2 class="text-xl font-semibold text-[#200934]">Nuevo trabajador</h2>
           <p class="mt-1 text-sm text-[#200934]/70">
             La contrasena inicial seguira el formato <strong>RUT + primer nombre en minusculas</strong>. Se recomienda informar al profesional y pedir cambio al iniciar sesion.
@@ -172,21 +192,6 @@ const especialidades = await prisma.especialidad.findMany({
               ></p>
             </div>
           </form>
-        </article>
-
-        <article class="lg:col-span-2 rounded-3xl bg-white p-6 shadow-xl flex flex-col justify-between">
-          <div>
-            <h2 class="text-xl font-semibold text-[#200934]">Gestionar listado</h2>
-            <p class="mt-1 text-sm text-[#200934]/70">
-              Consulta, filtra y edita trabajadores desde la pagina dedicada.
-            </p>
-          </div>
-          <a
-            href="/admin/trabajadores/listado"
-            class="mt-6 inline-flex items-center justify-center rounded-2xl bg-[#321355] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#200934] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#321355]"
-          >
-            Abrir listado y edicion
-          </a>
         </article>
       </section>
     </div>
