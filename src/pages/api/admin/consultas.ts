@@ -35,11 +35,6 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
     return jsonResponse(400, { error: "Solicitud invalida." });
   }
 
-  // Asegura columnas en caso de tablas antiguas
-  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS tratamiento JSONB;`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS orden_examenes TEXT;`);
-  await prisma.$executeRawUnsafe(`ALTER TABLE consulta_medica_slot ADD COLUMN IF NOT EXISTS derivacion TEXT;`);
-
   const consultaId = Number((payload as Record<string, unknown>).consultaId);
   const resumen = String((payload as Record<string, unknown>).resumen ?? "").trim();
   const derivacion = String((payload as Record<string, unknown>).derivacion ?? "").trim();

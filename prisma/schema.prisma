@@ -153,6 +153,7 @@ model Especialidad {
   trabajadores        Trabajador[]
   examenes            ExamenEspecialidad[]
   medicamentos        MedicamentoEspecialidad[]
+  enfermedades        EnfermedadEspecialidad[]
 }
 
 model Empresa {
@@ -261,18 +262,29 @@ model MedicamentoEspecialidad {
   @@unique([id_especialidad, nombre_medicamento], map: "especialidad_medicamento_unico")
 }
 
+model EnfermedadEspecialidad {
+  id_enfermedad       Int          @id @default(autoincrement())
+  nombre_enfermedad   String
+  id_especialidad     Int
+  especialidad        Especialidad @relation(fields: [id_especialidad], references: [id_especialidad])
+
+  @@map("enfermedad_especialidad")
+  @@unique([id_especialidad, nombre_enfermedad], map: "especialidad_enfermedad_unico")
+}
+
 model ConsultaMedicaSlot {
-  id_consulta       Int      @id
-  id_disponibilidad Int?
-  id_paciente       Int?
+  id_consulta       Int      @id @default(autoincrement())
+  id_disponibilidad Int      @unique
+  id_paciente       Int
   resumen           String
   derivacion        String?
+  diagnostico       String?
   tratamiento       Json?
   orden_examenes    String?
-  created_at        DateTime?
-  updated_at        DateTime?
-  disponibilidad    DisponibilidadTrabajador? @relation("DisponibilidadConsulta", fields: [id_disponibilidad], references: [id_disponibilidad])
-  paciente          Paciente?                 @relation("PacienteConsulta", fields: [id_paciente], references: [id_paciente])
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  disponibilidad    DisponibilidadTrabajador @relation("DisponibilidadConsulta", fields: [id_disponibilidad], references: [id_disponibilidad])
+  paciente          Paciente                 @relation("PacienteConsulta", fields: [id_paciente], references: [id_paciente])
 
   @@map("consulta_medica_slot")
 }

@@ -1,10 +1,10 @@
 export const prerender = false;
 export const runtime = "nodejs";
 
-import type { APIRoute } from "astro";
+import type { APIRoute, AstroCookies } from "astro";
 import { prisma } from "../../../../lib/prisma";
 import { SESSION_COOKIE_NAME, getSessionFromToken } from "../../../../utils/session";
-import { getWorkerByRut } from "../../../../utils/admin";
+import { GENERAL_SPECIALTY_NAME, getWorkerByRut } from "../../../../utils/admin";
 
 const jsonResponse = (status: number, payload: unknown) =>
   new Response(JSON.stringify(payload), {
@@ -12,14 +12,14 @@ const jsonResponse = (status: number, payload: unknown) =>
     headers: { "Content-Type": "application/json" },
   });
 
-const ensureDoctorSession = async (cookies: APIRoute["context"]["cookies"]) => {
+const ensureDoctorSession = async (cookies: AstroCookies) => {
   const token = cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!token) {
     return null;
   }
 
   const session = await getSessionFromToken(token);
- 	if (!session) {
+  if (!session) {
     cookies.delete(SESSION_COOKIE_NAME, { path: "/" });
     return null;
   }
@@ -46,9 +46,33 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     return jsonResponse(400, { error: "Identificador de paciente inválido." });
   }
 
+  let conditions: string[] = [];
+
+  if (worker.especialidad?.id_especialidad) {
+    if (worker.especialidad.nombre_especialidad === GENERAL_SPECIALTY_NAME) {
+      await prisma.enfermedadEspecialidad.createMany({
+        data: [
+          { nombre_enfermedad: "Hipertensión arterial", id_especialidad: worker.especialidad.id_especialidad },
+          { nombre_enfermedad: "Diabetes mellitus tipo 2", id_especialidad: worker.especialidad.id_especialidad },
+          { nombre_enfermedad: "Dislipidemia mixta", id_especialidad: worker.especialidad.id_especialidad },
+        ],
+        skipDuplicates: true,
+      });
+    }
+
+    const rows = await prisma.enfermedadEspecialidad.findMany({
+      where: { id_especialidad: worker.especialidad.id_especialidad },
+      orderBy: { nombre_enfermedad: "asc" },
+      take: 3,
+      select: { nombre_enfermedad: true },
+    });
+
+    conditions = rows.map((row) => row.nombre_enfermedad).filter(Boolean);
+  }
+
   return jsonResponse(200, {
     chronic: false,
-    conditions: [] as string[],
+    conditions,
     treatments: [] as string[],
     medications: [] as string[],
     exams: [] as string[],

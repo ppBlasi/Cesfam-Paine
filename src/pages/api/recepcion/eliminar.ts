@@ -1,7 +1,7 @@
 export const prerender = false;
 export const runtime = "nodejs";
 
-import type { APIRoute } from "astro";
+import type { APIRoute, AstroCookies } from "astro";
 import { prisma } from "../../../lib/prisma";
 import { SESSION_COOKIE_NAME, getSessionFromToken } from "../../../utils/session";
 import { getWorkerByRut, ADMIN_CARGO } from "../../../utils/admin";
@@ -12,7 +12,7 @@ const jsonResponse = (status: number, payload: unknown) =>
     headers: { "Content-Type": "application/json" },
   });
 
-const ensureReceptionSession = async (cookies: APIRoute["context"]["cookies"]) => {
+const ensureReceptionSession = async (cookies: AstroCookies) => {
   const token = cookies.get(SESSION_COOKIE_NAME)?.value;
 
   if (!token) {

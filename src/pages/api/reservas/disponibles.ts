@@ -1,7 +1,7 @@
 export const prerender = false;
 export const runtime = "nodejs";
 
-import type { APIRoute } from "astro";
+import type { APIRoute, AstroCookies } from "astro";
 import { prisma } from "../../../lib/prisma";
 import {
   GENERAL_SPECIALTY_NAME,
@@ -85,7 +85,7 @@ const getAllowedSpecialties = async (patientId: number | null) => {
   return { allowed, preferredSpecialty };
 };
 
-const ensurePatientSession = async (cookies: APIRoute["context"]["cookies"]) => {
+const ensurePatientSession = async (cookies: AstroCookies) => {
   const token = cookies.get(SESSION_COOKIE_NAME)?.value;
 
   if (!token) {

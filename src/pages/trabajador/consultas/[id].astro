@@ -36,6 +36,7 @@ if (!worker) {
 
 const specialtyName = worker.especialidad?.nombre_especialidad ?? "Sin especialidad";
 const isDoctor = worker.cargo === "MEDICO";
+const isGeneralDoctor = isDoctor && specialtyName === "Medicina General";
 
 if (!isDoctor && !user.isAdmin) {
   return Astro.redirect("/trabajador");
@@ -153,6 +154,22 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
               required
             ></textarea>
           </label>
+
+          {isGeneralDoctor ? (
+            <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+              Posible diagnóstico (Medicina General)
+              <select
+                name="diagnostico"
+                data-diagnosis-select
+                class="rounded-2xl border border-[#200934]/20 px-4 py-3 text-sm text-[#200934] focus:border-[#200934] focus:outline-none"
+              >
+                <option value="">Selecciona una opción</option>
+                <option value="Hipertensión arterial">Hipertensión arterial</option>
+                <option value="Diabetes mellitus tipo 2">Diabetes mellitus tipo 2</option>
+                <option value="Dislipidemia mixta">Dislipidemia mixta</option>
+              </select>
+            </label>
+          ) : null}
 
           <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
             Derivar a
@@ -346,6 +363,7 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
   const treatmentFields = form?.querySelector("[data-treatment-fields]");
   const treatmentFreqInput = form?.querySelector("[data-treatment-frequency]");
   const treatmentDurationInput = form?.querySelector("[data-treatment-duration]");
+  const diagnosisSelect = form?.querySelector("[data-diagnosis-select]");
   const examsField = form?.querySelector("[data-exams-field]");
   const selectedExamsContainer = form?.querySelector("[data-exams-selected]");
   const examButtons = Array.from(form?.querySelectorAll("[data-exam-suggest]") ?? []);
@@ -505,6 +523,14 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
                 dateStyle: "medium",
                 timeStyle: "short",
               })}</p>
+              <p class="text-xs text-[#200934]/70 mt-1">
+                Atendido por: ${entry.doctor_full_name ?? "Sin registro"}
+              </p>
+              ${
+                entry.diagnostico
+                  ? `<p class="text-xs text-[#200934]/70 mt-1">Diagnóstico: ${entry.diagnostico}</p>`
+                  : ""
+              }
               <p class="text-sm text-[#200934] mt-1">${entry.resumen}</p>
               ${
                 entry.derivacion
@@ -660,6 +686,7 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
   saveButton?.addEventListener("click", () => {
     const formData = new FormData(form);
     const resumen = String(formData.get("resumen") ?? "").trim();
+    const diagnostico = String(formData.get("diagnostico") ?? "").trim();
     const derivacion = String(formData.get("derivacion") ?? "").trim();
 
     if (!resumen) {
@@ -672,6 +699,7 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
     feedback.hidden = true;
     pendingPayload = {
       resumen,
+      diagnostico,
       derivacion,
       tratamientos: treatments,
       exams: examsField?.value.trim() ?? "",
@@ -699,6 +727,7 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
           slotId,
           patientId,
           resumen: pendingPayload.resumen,
+          diagnostico: pendingPayload.diagnostico,
           derivacion: pendingPayload.derivacion,
           tratamientos: pendingPayload.tratamientos,
           ordenExamenes: pendingPayload.exams,

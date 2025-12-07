@@ -4,6 +4,8 @@ import Layout from '../layouts/Layout.astro';
 const user = Astro.locals.user;
 const isTens = user?.worker?.cargo === 'TENS';
 const isAdmin = user?.isAdmin || user?.worker?.cargo === 'ADMIN';
+const isDoctorGeneral =
+  user?.worker?.cargo === 'MEDICO' && user?.worker?.specialtyName === 'Medicina General';
 ---
 
 <Layout title="CESFAM">
@@ -33,6 +35,21 @@ const isAdmin = user?.isAdmin || user?.worker?.cargo === 'ADMIN';
                 class="inline-block rounded-2xl border border-white/60 px-8 py-3 text-white font-semibold shadow-lg transition hover:bg-white/10"
               >
                 Panel administrativo
+              </a>
+            </div>
+          ) : isDoctorGeneral ? (
+            <div class="mt-6 flex flex-wrap items-center justify-center gap-4">
+              <a
+                href="/trabajador"
+                class="inline-block rounded-2xl bg-white/90 px-8 py-3 text-[#200934] font-semibold shadow-lg transition hover:bg-white"
+              >
+                Panel del trabajador
+              </a>
+              <a
+                href="/trabajador/consultas"
+                class="inline-block rounded-2xl border border-white/60 px-8 py-3 text-white font-semibold shadow-lg transition hover:bg-white/10"
+              >
+                Agenda personal
               </a>
             </div>
           ) : isTens ? (
