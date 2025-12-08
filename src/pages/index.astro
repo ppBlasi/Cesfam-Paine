@@ -48,7 +48,19 @@ if (user && !displayName) {
         <h1 class="mt-3 text-4xl font-bold sm:text-5xl">
           {displayName ? 'Nos alegra verte de nuevo en tu portal de salud' : 'Accede a tu portal de salud'}
         </h1>
-
+        {!user && (
+          <div class="mt-6 flex justify-center">
+            <a
+              href="/login"
+              class="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 font-semibold text-[#200934] shadow-lg transition hover:-translate-y-0.5 hover:shadow-2xl"
+            >
+              Iniciar sesión
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7" />
+              </svg>
+            </a>
+          </div>
+        )}
       </header>
 
       <section class="grid grid-cols-1 gap-6 md:grid-cols-2 mt-6">
