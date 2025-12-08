@@ -30,8 +30,7 @@ if (!worker) {
 
 const specialtyName = worker.especialidad?.nombre_especialidad ?? "Sin especialidad";
 const isTens = worker.cargo === "TENS";
-const isNurseSpecialty = specialtyName === "Enfermeria";
-const hasNurseRole = isNurseSpecialty || isTens;
+const hasNurseRole = isTens;
 
 if (!hasNurseRole && !user.isAdmin) {
   return Astro.redirect("/trabajador");
@@ -111,7 +110,7 @@ const workerFullName = [
         </p>
         <p class="mt-2 text-sm text-white/70">
           Profesional a cargo: <span class="font-semibold text-white">{workerFullName}</span>{" "}
-          ({isNurseSpecialty ? "Enfermeria" : worker.cargo})
+          ({worker.cargo})
         </p>
         <p class="mt-4 text-sm text-white/60">
           Registra signos vitales, altura y peso antes de derivar al paciente al profesional tratante.

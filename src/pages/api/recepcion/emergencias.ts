@@ -105,7 +105,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
     return jsonResponse(201, {
       message: "Emergencia registrada correctamente.",
-      id: record.id,
+      // Prisma returns BigInt for the id; serialize as string to avoid JSON.stringify errors
+      id: record.id.toString(),
       createdAt: record.createdAt,
     });
   } catch (error) {

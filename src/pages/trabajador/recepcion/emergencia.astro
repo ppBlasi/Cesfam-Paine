@@ -189,11 +189,11 @@ const workerName = [
 </Layout>
 
 <script>
-  const form = document.getElementById("emergency-form");
+  const form = document.getElementById("emergency-form") as HTMLFormElement | null;
   const status = document.getElementById("emergency-status");
-  const submitButton = form?.querySelector("[data-submit]");
+  const submitButton = form?.querySelector<HTMLButtonElement>("[data-submit]");
 
-  const setStatus = (message, isError = false) => {
+  const setStatus = (message: string, isError = false) => {
     if (!status) return;
     status.textContent = message;
     status.classList.toggle("text-emerald-700", !isError);
