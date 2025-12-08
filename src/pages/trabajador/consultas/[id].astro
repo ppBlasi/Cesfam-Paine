@@ -155,7 +155,11 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
           Describe hallazgos, indicaciones y acuerdos con el paciente. Al guardar, la consulta se dará por finalizada.
         </p>
 
-        <form class="mt-4 space-y-4" data-consultation-form>
+        <form
+          class="mt-4 space-y-4"
+          data-consultation-form
+          data-is-general={isGeneralDoctor ? "true" : "false"}
+        >
           <input type="hidden" name="slotId" value={slotId} />
           <input type="hidden" name="patientId" value={patient.id_paciente} />
 
@@ -194,6 +198,7 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
             <select
               name="derivacion"
               class="rounded-2xl border border-[#200934]/20 px-4 py-3 text-sm text-[#200934] focus:border-[#200934] focus:outline-none"
+              disabled={!isGeneralDoctor}
             >
               <option value="">Sin derivación</option>
               {derivacionOptions.length === 0 ? (
@@ -204,6 +209,11 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
                 ))
               )}
             </select>
+            {!isGeneralDoctor ? (
+              <span class="text-xs font-normal text-[#200934]/60">
+                Solo Medicina General puede emitir derivaciones para nuevas especialidades.
+              </span>
+            ) : null}
           </label>
 
           <div class="rounded-3xl bg-[#f9f7ff] p-4">
@@ -389,6 +399,7 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
   const errorBox = form?.querySelector("[data-error]");
   const slotId = Number(form?.slotId.value);
   const patientId = Number(form?.patientId.value);
+  const allowDerivation = (form?.dataset.isGeneral ?? "false") === "true";
   const medsData = document.getElementById("meds-data");
   const readMedsFromSelect = () => {
     if (!(treatmentMedSelect instanceof HTMLSelectElement)) return [];
@@ -705,7 +716,7 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
     const formData = new FormData(form);
     const resumen = String(formData.get("resumen") ?? "").trim();
     const diagnostico = String(formData.get("diagnostico") ?? "").trim();
-    const derivacion = String(formData.get("derivacion") ?? "").trim();
+    const derivacion = allowDerivation ? String(formData.get("derivacion") ?? "").trim() : "";
 
     if (!resumen) {
       errorBox.hidden = false;

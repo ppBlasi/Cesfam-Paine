@@ -55,6 +55,38 @@ const humanizeDate = (value: Date) =>
     day: "numeric",
   });
 
+const getConsumedSpecialties = async (patientId: number | null) => {
+  if (!patientId) return new Map<string, Date>();
+  const records = await prisma.disponibilidadTrabajador.findMany({
+    where: {
+      id_paciente: patientId,
+      estado: "finalizado",
+    },
+    select: {
+      fecha: true,
+      trabajador: {
+        select: {
+          especialidad: {
+            select: { nombre_especialidad: true },
+          },
+        },
+      },
+    },
+    orderBy: { fecha: "desc" },
+  });
+
+  const consumed = new Map<string, Date>();
+  for (const item of records) {
+    const name = item.trabajador.especialidad?.nombre_especialidad?.trim();
+    if (!name || name === GENERAL_SPECIALTY_NAME) continue;
+    const key = name.toLowerCase();
+    if (!consumed.has(key)) {
+      consumed.set(key, item.fecha);
+    }
+  }
+  return consumed;
+};
+
 const getAllowedSpecialties = async (patientId: number | null) => {
   const allowed = new Set<string>([GENERAL_SPECIALTY_NAME]);
   let preferredSpecialty: string | null = null;
@@ -72,13 +104,18 @@ const getAllowedSpecialties = async (patientId: number | null) => {
     ],
   });
 
+  const consumed = await getConsumedSpecialties(patientId);
+
   for (const item of derivaciones) {
     const name = item.derivacion?.trim();
-    if (name) {
-      allowed.add(name);
-      if (!preferredSpecialty) {
-        preferredSpecialty = name;
-      }
+    if (!name) continue;
+    const key = name.toLowerCase();
+    const consumedAt = consumed.get(key);
+    const derivationAt = item.created_at ?? new Date(0);
+    if (consumedAt && derivationAt <= consumedAt) continue;
+    allowed.add(name);
+    if (!preferredSpecialty) {
+      preferredSpecialty = name;
     }
   }
 
@@ -210,7 +247,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     ? await prisma.disponibilidadTrabajador.findFirst({
         where: {
           id_paciente: patient.id_paciente,
-          estado: "reservado",
+          estado: { in: ["reservado", "confirmado", "ingresado", "en_curso"] },
           fecha: { gte: now },
           trabajador: {
             especialidad: { nombre_especialidad: selectedSpecialty },

@@ -1,0 +1,435 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import { prisma } from "../../../lib/prisma";
+
+const user = Astro.locals.user;
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+if (!user.isWorker && !user.isAdmin) {
+  return Astro.redirect("/");
+}
+
+const worker = await prisma.trabajador.findFirst({
+  where: { rut_trabajador: user.rut },
+  include: {
+    especialidad: {
+      select: {
+        nombre_especialidad: true,
+      },
+    },
+  },
+});
+
+if (!worker) {
+  return Astro.redirect(user.isAdmin ? "/admin" : "/perfil");
+}
+
+const isNurse =
+  worker.cargo === "MEDICO" && worker.especialidad?.nombre_especialidad === "Enfermeria";
+
+if (!isNurse && !user.isAdmin) {
+  return Astro.redirect("/trabajador");
+}
+
+const url = new URL(Astro.request.url);
+const emergencyIdParam = url.searchParams.get("id");
+if (!emergencyIdParam) {
+  return Astro.redirect("/trabajador/emergencias");
+}
+
+let emergency = null;
+try {
+  const emergencyId = BigInt(emergencyIdParam);
+  emergency = await prisma.emergencia.findUnique({ where: { id: emergencyId } });
+} catch (error) {
+  console.warn("No se pudo cargar emergencia para referencia rapida", error);
+}
+
+if (!emergency) {
+  return Astro.redirect("/trabajador/emergencias");
+}
+
+const doctors = await prisma.trabajador.findMany({
+  where: { cargo: "MEDICO" },
+  select: {
+    id_trabajador: true,
+    primer_nombre_trabajador: true,
+    segundo_nombre_trabajador: true,
+    apellido_p_trabajador: true,
+    apellido_m_trabajador: true,
+    especialidad: { select: { nombre_especialidad: true } },
+  },
+  orderBy: [{ primer_nombre_trabajador: "asc" }, { apellido_p_trabajador: "asc" }],
+});
+
+const formatDoctorName = (doctor: (typeof doctors)[number]) =>
+  [
+    doctor.primer_nombre_trabajador,
+    doctor.segundo_nombre_trabajador,
+    doctor.apellido_p_trabajador,
+    doctor.apellido_m_trabajador,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+const defaultGeneralDoctor = doctors.find(
+  (doctor) => doctor.especialidad?.nombre_especialidad?.toLowerCase() === "medicina general",
+);
+const defaultDoctorId =
+  String(defaultGeneralDoctor?.id_trabajador ?? doctors[0]?.id_trabajador ?? "") || "";
+const nurseName = [worker.primer_nombre_trabajador, worker.apellido_p_trabajador]
+  .filter(Boolean)
+  .join(" ");
+---
+
+<Layout title="Iniciar emergencia">
+  <section class="bg-gradient-to-b from-[#f4f1fb] to-[#e9e2ff] py-12">
+    <div class="mx-auto flex max-w-6xl flex-col gap-8 px-4 sm:px-6">
+      <header class="rounded-3xl bg-[#200934] px-6 py-8 text-white shadow-xl">
+        <p class="text-sm uppercase tracking-[0.35em] text-white/70">Enfermeria</p>
+        <h1 class="mt-3 text-3xl font-bold">Iniciar atencion de emergencia</h1>
+        <div class="mt-4 flex flex-wrap gap-3">
+          <a
+            href="/trabajador/emergencias"
+            class="inline-flex items-center justify-center rounded-2xl bg-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/25"
+          >
+            Volver al listado
+          </a>
+          <span class="inline-flex items-center rounded-2xl bg-white/10 px-3 py-1 text-xs font-semibold text-white/80">
+            Profesional: {nurseName || "Enfermeria"}
+          </span>
+        </div>
+      </header>
+
+      <div class="rounded-3xl border border-[#200934]/10 bg-white p-6 shadow-sm">
+        <p class="text-sm font-semibold uppercase tracking-[0.2em] text-[#321355]/80">Emergencia en curso</p>
+        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <p class="text-lg font-bold text-[#200934]">{emergency.fullName}</p>
+            <p class="text-sm text-[#200934]/70">RUT: {emergency.rut}</p>
+            <p class="text-sm text-[#200934]/70">Telefono: {emergency.phone}</p>
+            <p class="text-sm text-[#200934]/70">Edad: {emergency.age}</p>
+          </div>
+          <div class="text-sm text-[#200934]/70">
+            <p>Fecha de nacimiento: {new Date(emergency.birthdate).toLocaleDateString("es-CL")}</p>
+            <p>Sexo: {emergency.sex}</p>
+            <p>Direccion: {emergency.address}</p>
+            <p class="mt-1 text-[12px] text-[#200934]/60">
+              Ingreso: {new Date(emergency.createdAt).toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" })}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <form
+        data-emergency-form
+        data-emergency-id={emergency.id.toString()}
+        class="rounded-3xl border border-[#200934]/10 bg-white p-6 shadow-sm sm:p-8"
+      >
+        <input type="hidden" name="emergencyId" value={emergency.id.toString()} />
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+            Numero de box
+            <input
+              type="text"
+              name="box"
+              placeholder="Ej: Box 3"
+              class="rounded-2xl border border-[#200934]/15 bg-white px-4 py-3 text-base font-normal text-[#200934] shadow-inner outline-none transition focus:border-[#321355] focus:ring-2 focus:ring-[#321355]/20"
+            />
+          </label>
+
+          <div class="flex flex-col gap-2">
+            <p class="text-sm font-semibold text-[#200934]">Estado del paciente</p>
+            <div class="flex flex-wrap gap-3">
+              <label class="flex cursor-pointer items-center gap-2 rounded-full border border-[#200934]/15 px-3 py-2 text-sm font-semibold text-[#200934] shadow-sm transition hover:border-[#321355]/40">
+                <input type="radio" name="estado" value="consciente" class="text-[#321355]" checked />
+                Consciente
+              </label>
+              <label class="flex cursor-pointer items-center gap-2 rounded-full border border-[#200934]/15 px-3 py-2 text-sm font-semibold text-[#200934] shadow-sm transition hover:border-[#321355]/40">
+                <input type="radio" name="estado" value="inconsciente" class="text-[#321355]" />
+                Inconsciente
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-5 grid gap-4 md:grid-cols-2">
+          <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934] md:col-span-2">
+            Motivo de la emergencia
+            <textarea
+              name="motivo"
+              rows="3"
+              placeholder="Dolor toracico, paro respiratorio, fractura, etc."
+              class="rounded-2xl border border-[#200934]/15 bg-white px-4 py-3 text-base font-normal text-[#200934] shadow-inner outline-none transition focus:border-[#321355] focus:ring-2 focus:ring-[#321355]/20"
+            ></textarea>
+          </label>
+
+          <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+            Signos vitales
+            <textarea
+              name="signosVitales"
+              rows="4"
+              placeholder="Ej: PA 120/80, FC 85, FR 18, SatO2 96%, Temp 36.7"
+              class="rounded-2xl border border-[#200934]/15 bg-white px-4 py-3 text-base font-normal text-[#200934] shadow-inner outline-none transition focus:border-[#321355] focus:ring-2 focus:ring-[#321355]/20"
+            ></textarea>
+          </label>
+
+          <div class="flex flex-col gap-3 rounded-2xl bg-[#f8f6ff] p-4">
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-sm font-semibold text-[#200934]">Medico a cargo</p>
+              <span class="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[#321355] shadow-sm">
+                Medico general por defecto
+              </span>
+            </div>
+            <label class="flex flex-col gap-2 text-xs font-semibold text-[#200934]/80">
+              Filtro de medicos
+              <input
+                type="search"
+                data-doctor-filter
+                placeholder="Filtrar por nombre o especialidad"
+                class="rounded-xl border border-[#200934]/15 bg-white px-3 py-2 text-sm font-normal text-[#200934] shadow-inner outline-none transition focus:border-[#321355] focus:ring-2 focus:ring-[#321355]/20"
+              />
+            </label>
+            <select
+              name="doctorId"
+              data-doctor-select
+              data-default-id={defaultDoctorId}
+              class="rounded-2xl border border-[#200934]/15 bg-white px-4 py-3 text-base font-medium text-[#200934] shadow-inner outline-none transition focus:border-[#321355] focus:ring-2 focus:ring-[#321355]/20"
+            >
+              {doctors.length > 0 ? (
+                doctors.map((doctor) => {
+                  const label = formatDoctorName(doctor);
+                  const specialty = doctor.especialidad?.nombre_especialidad ?? "Sin especialidad";
+                  return (
+                    <option value={doctor.id_trabajador} selected={String(doctor.id_trabajador) === defaultDoctorId}>
+                      {label} · {specialty}
+                    </option>
+                  );
+                })
+              ) : (
+                <option value="">No hay medicos registrados</option>
+              )}
+            </select>
+            <p class="text-xs text-[#200934]/70">
+              Usa el filtro para encontrar al profesional adecuado. Si hay un medico general disponible se selecciona automaticamente.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-5 grid gap-4 md:grid-cols-2">
+          <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+            Alergias
+            <textarea
+              name="alergias"
+              rows="3"
+              placeholder="Ej: Alergia a penicilina, latex, frutos secos."
+              class="rounded-2xl border border-[#200934]/15 bg-white px-4 py-3 text-base font-normal text-[#200934] shadow-inner outline-none transition focus:border-[#321355] focus:ring-2 focus:ring-[#321355]/20"
+            ></textarea>
+          </label>
+
+          <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+            Resumen de consulta
+            <textarea
+              name="resumen"
+              rows="3"
+              placeholder="Notas rapidas de la atencion realizada o indicaciones iniciales."
+              class="rounded-2xl border border-[#200934]/15 bg-white px-4 py-3 text-base font-normal text-[#200934] shadow-inner outline-none transition focus:border-[#321355] focus:ring-2 focus:ring-[#321355]/20"
+            ></textarea>
+          </label>
+        </div>
+
+        <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex gap-3">
+            <a
+              href="/trabajador/emergencias"
+              class="inline-flex items-center justify-center rounded-2xl border border-[#200934]/15 px-4 py-2 text-sm font-semibold text-[#200934] transition hover:border-[#321355]/40"
+            >
+              Cancelar
+            </a>
+            <button
+              type="button"
+              data-finish-emergency
+              disabled
+              class="inline-flex items-center justify-center rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#3d1a6b] disabled:bg-[#c8c0de] disabled:text-white/80 disabled:cursor-not-allowed "
+            >
+              Terminar emergencia
+            </button>
+          </div>
+        </div>
+
+        <p
+          data-finish-status
+          class="mt-4 hidden rounded-2xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 shadow-inner"
+        ></p>
+        <p
+          data-finish-error
+          class="mt-4 hidden rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 shadow-inner"
+        ></p>
+      </form>
+    </div>
+  </section>
+
+  <div
+    data-confirm-modal
+    class="fixed inset-0 z-40 hidden items-center justify-center bg-black/50 px-4"
+  >
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      <h3 class="text-lg font-bold text-[#200934]">¿Estas seguro de terminar la emergencia?</h3>
+      <p class="mt-2 text-sm text-[#200934]/70">
+        Aun no se registrara informacion en la base de datos. Puedes volver atras si necesitas completar algo mas.
+      </p>
+      <div class="mt-6 flex justify-end gap-3">
+        <button
+          type="button"
+          data-confirm-no
+          class="rounded-2xl border border-[#200934]/15 px-4 py-2 text-sm font-semibold text-[#200934] transition hover:border-[#321355]/40"
+        >
+          No
+        </button>
+        <button
+          type="button"
+          data-confirm-yes
+          class="rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#3d1a6b]"
+        >
+          Si
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const filterInput = document.querySelector("[data-doctor-filter]");
+      const doctorSelect = document.querySelector("[data-doctor-select]");
+      const form = document.querySelector("[data-emergency-form]");
+      const modal = document.querySelector("[data-confirm-modal]");
+      const openModalBtn = document.querySelector("[data-finish-emergency]");
+      const cancelBtn = document.querySelector("[data-confirm-no]");
+      const confirmBtn = document.querySelector("[data-confirm-yes]");
+      const statusMessage = document.querySelector("[data-finish-status]");
+      const errorMessage = document.querySelector("[data-finish-error]");
+
+      const toggleModal = (show: boolean) => {
+        if (!(modal instanceof HTMLElement)) return;
+        modal.classList.toggle("hidden", !show);
+        modal.classList.toggle("flex", show);
+      };
+
+      const validateForm = () => {
+        if (!(form instanceof HTMLFormElement)) return false;
+        const requiredTextareas = ["motivo", "signosVitales", "alergias", "resumen"];
+        const boxValue = String(form.box?.value ?? "").trim();
+        const estadoValue = form.querySelector<HTMLInputElement>('input[name="estado"]:checked')?.value?.trim() ?? "";
+        const doctorValue = form.querySelector<HTMLSelectElement>('select[name="doctorId"]')?.value?.trim() ?? "";
+        const filledTextareas = requiredTextareas.every((name) => {
+          const field = form.querySelector<HTMLTextAreaElement>(`textarea[name="${name}"]`);
+          return !!field && field.value.trim().length > 0;
+        });
+        return Boolean(boxValue && estadoValue && doctorValue && filledTextareas);
+      };
+
+      const setFinishButtonState = () => {
+        if (!(openModalBtn instanceof HTMLButtonElement)) return;
+        openModalBtn.disabled = !validateForm();
+      };
+
+      if (filterInput instanceof HTMLInputElement && doctorSelect instanceof HTMLSelectElement) {
+        const defaultId = doctorSelect.dataset.defaultId ?? "";
+        if (defaultId) {
+          doctorSelect.value = defaultId;
+        }
+
+        filterInput.addEventListener("input", () => {
+          const term = filterInput.value.trim().toLowerCase();
+          let firstVisible: string | null = null;
+          Array.from(doctorSelect.options).forEach((option) => {
+            const matches = option.text.toLowerCase().includes(term);
+            option.hidden = !matches;
+            if (matches && !firstVisible) {
+              firstVisible = option.value;
+            }
+          });
+          if (firstVisible) {
+            doctorSelect.value = firstVisible;
+          }
+        });
+      }
+
+      form?.addEventListener("input", () => setFinishButtonState());
+
+      openModalBtn?.addEventListener("click", () => toggleModal(true));
+      cancelBtn?.addEventListener("click", () => toggleModal(false));
+
+      confirmBtn?.addEventListener("click", async (event) => {
+        toggleModal(false);
+        if (!(form instanceof HTMLFormElement)) return;
+        const button = event.currentTarget;
+        if (!(button instanceof HTMLButtonElement)) return;
+
+        statusMessage?.classList.add("hidden");
+        errorMessage?.classList.add("hidden");
+
+        const formData = new FormData(form);
+        const payload = {
+          emergencyId: form.dataset.emergencyId ?? formData.get("emergencyId") ?? "",
+          box: String(formData.get("box") ?? "").trim(),
+          estado: String(formData.get("estado") ?? "").trim(),
+          motivo: String(formData.get("motivo") ?? "").trim(),
+          signosVitales: String(formData.get("signosVitales") ?? "").trim(),
+          alergias: String(formData.get("alergias") ?? "").trim(),
+          resumen: String(formData.get("resumen") ?? "").trim(),
+          doctorId: String(formData.get("doctorId") ?? "").trim(),
+        };
+
+        if (!payload.emergencyId) {
+          errorMessage?.classList.remove("hidden");
+          if (errorMessage) {
+            errorMessage.textContent = "Falta el identificador de la emergencia.";
+          }
+          return;
+        }
+
+        try {
+          button.setAttribute("disabled", "true");
+          button.textContent = "Guardando...";
+
+          const response = await fetch("/api/enfermeria/emergencias/atencion", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          const result = await response.json().catch(() => null);
+
+          if (!response.ok || !result) {
+            throw new Error(result?.error ?? "No pudimos guardar la atencion.");
+          }
+
+          if (statusMessage) {
+            statusMessage.textContent = result.message ?? "Emergencia finalizada y guardada.";
+            statusMessage.classList.remove("hidden");
+          }
+          window.location.href = "/trabajador/emergencias";
+        } catch (error) {
+          if (errorMessage) {
+            errorMessage.textContent =
+              error instanceof Error ? error.message : "Ocurrio un error inesperado.";
+            errorMessage.classList.remove("hidden");
+          }
+        } finally {
+          button.removeAttribute("disabled");
+          button.textContent = "Si";
+        }
+      });
+
+      modal?.addEventListener("click", (event) => {
+        if (event.target === modal) {
+          toggleModal(false);
+        }
+      });
+    });
+  </script>
+</Layout>

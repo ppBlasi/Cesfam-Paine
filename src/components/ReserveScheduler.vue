@@ -31,8 +31,7 @@
 
       <template v-else>
         <div v-if="days.length === 0" class="rounded-2xl bg-white/10 p-5 text-sm text-white/80">
-          En este momento no tenemos horas disponibles con medicina general. Intenta nuevamente mas tarde o visita tu
-          CESFAM para recibir asistencia.
+          No hay horas disponibles para la especialidad seleccionada. Intenta nuevamente mas tarde.
         </div>
 
         <div class="flex flex-col gap-4 rounded-3xl bg-white/5 p-4 shadow-inner">

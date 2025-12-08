@@ -38,6 +38,12 @@ const emergencies = await prisma.emergencia.findMany({
   orderBy: { createdAt: "desc" },
   take: 50,
 });
+
+const attendedRows = await prisma.$queryRaw<Array<{ emergencia_id: bigint }>>`
+  select emergencia_id from emergency_attentions
+`;
+const attendedSet = new Set(attendedRows.map((row) => row.emergencia_id.toString()));
+const pendingEmergencies = emergencies.filter((item) => !attendedSet.has(item.id.toString()));
 ---
 
 <Layout title="Emergencias">
@@ -57,9 +63,9 @@ const emergencies = await prisma.emergencia.findMany({
         </a>
       </header>
 
-      {emergencies.length > 0 ? (
+      {pendingEmergencies.length > 0 ? (
         <div class="grid gap-4 md:grid-cols-2">
-          {emergencies.map((emergency) => (
+          {pendingEmergencies.map((emergency) => (
             <article class="rounded-3xl border border-[#200934]/10 bg-white p-5 shadow-sm">
               <div class="flex items-start justify-between gap-3">
                 <div>
@@ -73,6 +79,12 @@ const emergencies = await prisma.emergencia.findMany({
                   <p class="text-sm text-[#200934]/70">Sexo: {emergency.sex}</p>
                   <p class="text-sm text-[#200934]/70">Direccion: {emergency.address}</p>
                 </div>
+                <a
+                  href={`/trabajador/emergencias/iniciar?id=${emergency.id}`}
+                  class="mt-1 inline-flex items-center justify-center rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#3d1a6b] md:mt-0"
+                >
+                  Iniciar emergencia
+                </a>
               </div>
               <p class="mt-3 text-xs text-[#200934]/60">
                 Registrado: {new Date(emergency.createdAt).toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" })}

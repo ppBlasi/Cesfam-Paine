@@ -50,7 +50,6 @@ type WorkerOption = {
   title: string;
   description: string;
   href?: string;
-  highlight?: string;
 };
 
 const defaultOptions: WorkerOption[] = [
@@ -75,7 +74,6 @@ const optionsBySpecialty: Record<string, WorkerOption[]> = {
       title: "Panel administrativo",
       description: "Accede a indicadores generales y configuraciones administrativas.",
       href: "/admin",
-      highlight: "Recomendado",
     },
     {
       title: "Gestionar trabajadores",
@@ -98,22 +96,9 @@ const optionsBySpecialty: Record<string, WorkerOption[]> = {
   ],
   Enfermeria: [
     {
-      title: "Agenda de procedimientos",
-      description: "Organiza controles, curaciones y atenciones de enfermeria.",
-    },
-    {
-      title: "Registro de signos vitales",
-      description: "Anota los controles realizados para mantener el seguimiento.",
-    },
-    {
-      title: "Educacion al paciente",
-      description: "Programa sesiones educativas y material de apoyo.",
-    },
-    {
       title: "Emergencias",
       description: "Revisa ingresos de emergencia registrados por recepcion.",
       href: "/trabajador/emergencias",
-      highlight: "Prioritario",
     },
   ],
   Kinesiologia: [
@@ -155,7 +140,6 @@ let toolsOptions: WorkerOption[] = isReception
         title: "Busqueda de pacientes",
         description: "Consulta reservas ingresando el RUT.",
         href: "/trabajador/recepcion",
-        highlight: "Recepcion",
       },
       {
         title: "Emergencia",
@@ -166,21 +150,25 @@ let toolsOptions: WorkerOption[] = isReception
   : specialtyOptions;
 
 if (isDoctor) {
-  const patientOptionIndex = toolsOptions.findIndex(
-    (item) => item.title === "Pacientes con hora reservada",
-  );
-  const patientOption =
-    patientOptionIndex >= 0 ? toolsOptions.splice(patientOptionIndex, 1)[0] : null;
+  if (specialtyName === "Enfermeria") {
+    toolsOptions = optionsBySpecialty.Enfermeria;
+  } else {
+    const patientOptionIndex = toolsOptions.findIndex(
+      (item) => item.title === "Pacientes con hora reservada",
+    );
+    const patientOption =
+      patientOptionIndex >= 0 ? toolsOptions.splice(patientOptionIndex, 1)[0] : null;
 
-  toolsOptions = [
-    ...(patientOption ? [patientOption] : []),
-    {
-      title: "Agenda personal",
-      description: "Consultar todas las horas reservadas que tienes",
-      href: "/trabajador/consultas",
-    },
-    ...toolsOptions,
-  ];
+    toolsOptions = [
+      ...(patientOption ? [patientOption] : []),
+      {
+        title: "Agenda personal",
+        description: "Consultar todas las horas reservadas que tienes",
+        href: "/trabajador/consultas",
+      },
+      ...toolsOptions,
+    ];
+  }
 }
 
 if (isTens) {
@@ -268,11 +256,7 @@ const workerFullName = [
                       </span>
                     )}
                   </div>
-                  {option.highlight ? (
-                    <p class="mt-2 inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                      {option.highlight}
-                    </p>
-                  ) : null}
+                  {/* badges removidas */}
                 </li>
               ))}
             </ul>

@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import type { APIRoute, AstroCookies } from "astro";
 import { prisma } from "../../../../lib/prisma";
 import { SESSION_COOKIE_NAME, getSessionFromToken } from "../../../../utils/session";
-import { getWorkerByRut } from "../../../../utils/admin";
+import { GENERAL_SPECIALTY_NAME, getWorkerByRut } from "../../../../utils/admin";
 
 const jsonResponse = (status: number, payload: unknown) =>
   new Response(JSON.stringify(payload), {
@@ -53,7 +53,7 @@ export const POST: APIRoute = async ({ request, cookies, params }) => {
   const patientId = Number((payload as Record<string, unknown>).patientId);
   const resumen = String((payload as Record<string, unknown>).resumen ?? "").trim();
   const diagnostico = String((payload as Record<string, unknown>).diagnostico ?? "").trim() || null;
-  const derivacion = String((payload as Record<string, unknown>).derivacion ?? "").trim() || null;
+  const rawDerivacion = String((payload as Record<string, unknown>).derivacion ?? "").trim() || null;
   const tratamiento = Array.isArray((payload as Record<string, unknown>).tratamientos)
     ? (payload as Record<string, unknown>).tratamientos
     : [];
@@ -75,6 +75,10 @@ export const POST: APIRoute = async ({ request, cookies, params }) => {
   if (!slot || slot.id_paciente !== patientId) {
     return jsonResponse(404, { error: "No encontramos la reserva asociada al paciente." });
   }
+
+  const workerSpecialty = worker.especialidad?.nombre_especialidad ?? "";
+  const allowDerivation = workerSpecialty === GENERAL_SPECIALTY_NAME;
+  const derivacion = allowDerivation ? rawDerivacion : null;
 
   try {
     await prisma.consultaMedicaSlot.upsert({
