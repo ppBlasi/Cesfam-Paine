@@ -1,4 +1,3 @@
-// tests/login/session.test.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { prisma } from "../../lib/prisma";
 import {
@@ -70,9 +69,8 @@ describe("session utils", () => {
 
   it("deleteSessionByToken debe eliminar sesiones", async () => {
     prisma.session.deleteMany.mockResolvedValue({ count: 1 });
-
     await deleteSessionByToken("token123");
-
     expect(prisma.session.deleteMany).toHaveBeenCalledTimes(1);
   });
+
 });
