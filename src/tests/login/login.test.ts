@@ -1,4 +1,3 @@
-// tests/login/login.test.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "../../pages/api/login";
 import { prisma } from "../../lib/prisma";

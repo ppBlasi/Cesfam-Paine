@@ -1,14 +1,28 @@
 /// <reference types="vitest" />
 
 import { defineConfig } from "vitest/config";
+import vue from "@vitejs/plugin-vue";
 import path from "path";
 
 export default defineConfig({
+  plugins: [vue()],
+
   test: {
-    globals: true,                  // describe, it, expect, vi
-    environment: "node",            // pruebas server/API
-    setupFiles: ["./src/tests/setup-test.ts"], // archivo de configuración global
-    include: ["src/tests/**/*.test.ts"],       // carpeta donde están los tests
+    globals: true,
+
+    // 👇 Ambiente DOM necesario para Vue Test Utils
+    environment: "jsdom",
+
+    setupFiles: ["./src/tests/setup-test.ts"],
+
+    include: [
+      "src/tests/**/*.test.ts",
+      "src/tests/components/**/*.test.ts",
+    ],
+
+    deps: {
+      inline: ["vue", "@vue"], // evita errores de transformación
+    },
 
     coverage: {
       provider: "v8",

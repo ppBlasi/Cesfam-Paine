@@ -1,4 +1,3 @@
-// tests/login/logout.test.ts
 import { describe, it, expect, vi } from "vitest";
 import { POST } from "../../pages/api/logout";
 import { deleteSessionByToken } from "../../utils/session";
