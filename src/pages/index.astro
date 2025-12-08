@@ -1,11 +1,40 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { prisma } from '../lib/prisma';
 
 const user = Astro.locals.user;
-const isTens = user?.worker?.cargo === 'TENS';
-const isAdmin = user?.isAdmin || user?.worker?.cargo === 'ADMIN';
-const isDoctorGeneral =
-  user?.worker?.cargo === 'MEDICO' && user?.worker?.specialtyName === 'Medicina General';
+
+let displayName: string | null = null;
+
+if (user) {
+  if (user.isWorker || user.isAdmin) {
+    const worker = await prisma.trabajador.findFirst({
+      where: { rut_trabajador: user.rut },
+      select: {
+        primer_nombre_trabajador: true,
+        apellido_p_trabajador: true,
+      },
+    });
+    displayName = [worker?.primer_nombre_trabajador, worker?.apellido_p_trabajador]
+      .filter(Boolean)
+      .join(' ') || null;
+  } else {
+    const patient = await prisma.paciente.findFirst({
+      where: { rut_paciente: user.rut },
+      select: {
+        primer_nombre_paciente: true,
+        apellido_p_paciente: true,
+      },
+    });
+    displayName = [patient?.primer_nombre_paciente, patient?.apellido_p_paciente]
+      .filter(Boolean)
+      .join(' ') || null;
+  }
+}
+
+if (user && !displayName) {
+  displayName = user.rut;
+}
 ---
 
 <Layout title="CESFAM">
@@ -14,83 +43,12 @@ const isDoctorGeneral =
 
       <header class="text-center">
         <p class="text-sm uppercase tracking-widest text-white/70">
-          Bienvenido al sistema del CESFAM Dr Miguel Solar de Paine
+          {displayName ? `Hola ${displayName}, bienvenido/a al CESFAM Dr Miguel Solar de Paine` : 'Bienvenido al sistema del CESFAM Dr Miguel Solar de Paine'}
         </p>
-        <h1 class="mt-3 text-4xl font-bold sm:text-5xl">Accede a tu portal de salud</h1>
-        <p class="mt-4 max-w-2xl mx-auto text-white/80">
-          Gestiona tus reservas, revisa información importante y mantente al día con las novedades del CESFAM.
-        </p>
+        <h1 class="mt-3 text-4xl font-bold sm:text-5xl">
+          {displayName ? 'Nos alegra verte de nuevo en tu portal de salud' : 'Accede a tu portal de salud'}
+        </h1>
 
-        {user ? (
-          isAdmin ? (
-            <div class="mt-6 flex flex-wrap items-center justify-center gap-4">
-              <a
-                href="/trabajador"
-                class="inline-block rounded-2xl bg-white/90 px-8 py-3 text-[#200934] font-semibold shadow-lg transition hover:bg-white"
-              >
-                Panel del trabajador
-              </a>
-              <a
-                href="/admin"
-                class="inline-block rounded-2xl border border-white/60 px-8 py-3 text-white font-semibold shadow-lg transition hover:bg-white/10"
-              >
-                Panel administrativo
-              </a>
-            </div>
-          ) : isDoctorGeneral ? (
-            <div class="mt-6 flex flex-wrap items-center justify-center gap-4">
-              <a
-                href="/trabajador"
-                class="inline-block rounded-2xl bg-white/90 px-8 py-3 text-[#200934] font-semibold shadow-lg transition hover:bg-white"
-              >
-                Panel del trabajador
-              </a>
-              <a
-                href="/trabajador/consultas"
-                class="inline-block rounded-2xl border border-white/60 px-8 py-3 text-white font-semibold shadow-lg transition hover:bg-white/10"
-              >
-                Agenda personal
-              </a>
-            </div>
-          ) : isTens ? (
-            <div class="mt-6 flex flex-wrap items-center justify-center gap-4">
-              <a
-                href="/trabajador/preingreso"
-                class="inline-block rounded-2xl bg-white/90 px-8 py-3 text-[#200934] font-semibold shadow-lg transition hover:bg-white"
-              >
-                Ir al preingreso
-              </a>
-              <a
-                href="/trabajador"
-                class="inline-block rounded-2xl border border-white/60 px-8 py-3 text-white font-semibold shadow-lg transition hover:bg-white/10"
-              >
-                Panel del trabajador
-              </a>
-            </div>
-          ) : (
-            <div class="mt-6 flex flex-wrap items-center justify-center gap-4">
-              <a
-                href="/reserva/reserva"
-                class="inline-block rounded-2xl bg-white/90 px-8 py-3 text-[#200934] font-semibold shadow-lg transition hover:bg-white"
-              >
-                Reserva tu hora
-              </a>
-              <a
-                href="/perfil"
-                class="inline-block rounded-2xl border border-white/60 px-8 py-3 text-white font-semibold shadow-lg transition hover:bg-white/10"
-              >
-                Ver perfil
-              </a>
-            </div>
-          )
-        ) : (
-          <a
-            href="/login"
-            class="inline-block mt-6 rounded-2xl bg-white/90 px-8 py-3 text-[#200934] font-semibold shadow-lg transition hover:bg-white"
-          >
-            Inicia sesion aqui
-          </a>
-        )}
       </header>
 
       <section class="grid grid-cols-1 gap-6 md:grid-cols-2 mt-6">

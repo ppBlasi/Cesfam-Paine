@@ -21,6 +21,7 @@ type ConsultaDetalle = {
   id_especialidad_trabajador: number | null;
   resumen: string;
   derivacion: string | null;
+  diagnostico: string | null;
   tratamiento: unknown;
   orden_examenes: string | null;
   created_at: Date | null;
@@ -88,6 +89,7 @@ const obtenerConsulta = async (consultaId: number): Promise<ConsultaDetalle | nu
       id_especialidad_trabajador: row.disponibilidad?.trabajador?.id_especialidad ?? null,
       resumen: row.resumen,
       derivacion: row.derivacion,
+      diagnostico: row.diagnostico,
       tratamiento: row.tratamiento,
       orden_examenes: row.orden_examenes,
       created_at: row.created_at ?? null,
@@ -120,6 +122,30 @@ const especialidades = await prisma.especialidad.findMany({
 const especialidadesClinicas = especialidades.filter(
   (opt) => !["administracion", "recepcion"].includes(opt.nombre_especialidad.toLowerCase()),
 );
+
+const diagnosticoCatalogo = consulta.id_especialidad_trabajador
+  ? await prisma.enfermedadEspecialidad.findMany({
+      where: { id_especialidad: consulta.id_especialidad_trabajador },
+      orderBy: { nombre_enfermedad: "asc" },
+    })
+  : await prisma.enfermedadEspecialidad.findMany({
+      orderBy: [{ id_especialidad: "asc" }, { nombre_enfermedad: "asc" }],
+    });
+
+const diagnosticoOptions = Array.from(
+  new Map(
+    diagnosticoCatalogo
+      .map((item) => item.nombre_enfermedad?.trim())
+      .filter(Boolean)
+      .map((name) => [name.toLowerCase(), name]),
+  ).values(),
+);
+
+const hasCustomDiagnostico =
+  consulta.diagnostico &&
+  !diagnosticoOptions.some(
+    (opt) => opt.toLowerCase() === (consulta.diagnostico ?? "").toLowerCase(),
+  );
 
 const hasCustomDerivacion =
   consulta.derivacion &&
@@ -237,6 +263,33 @@ const catalogData = JSON.stringify({
                 ) : null}
               </select>
               <p class="mt-1 text-xs text-[#200934]/60">Selecciona la especialidad a la que se derivará al paciente.</p>
+            </div>
+
+            <div>
+              <label class="mb-2 block text-sm font-semibold text-[#200934]" for="diagnostico">Posible diagnóstico</label>
+              <select
+                id="diagnostico"
+                name="diagnostico"
+                class="w-full rounded-2xl border border-[#200934]/15 px-4 py-3 text-sm text-[#200934] shadow-sm outline-none transition focus:border-[#200934] focus:ring-2 focus:ring-[#200934]/30"
+              >
+                <option value="" selected={!consulta.diagnostico}>
+                  Sin diagnóstico
+                </option>
+                {diagnosticoOptions.map((nombre) => (
+                  <option value={nombre} selected={nombre === (consulta.diagnostico ?? "")}>
+                    {nombre}
+                  </option>
+                ))}
+                {hasCustomDiagnostico ? (
+                  <option value={consulta.diagnostico ?? ""} selected>
+                    {`Actual: ${consulta.diagnostico}`}
+                  </option>
+                ) : null}
+                {diagnosticoOptions.length === 0 ? (
+                  <option disabled>No hay diagnósticos configurados</option>
+                ) : null}
+              </select>
+              <p class="mt-1 text-xs text-[#200934]/60">Elige el diagnóstico registrado en la consulta.</p>
             </div>
 
             <div class="rounded-2xl bg-[#f4f1fb] px-4 py-3">
@@ -375,6 +428,7 @@ const catalogData = JSON.stringify({
   const consultaIdInput = document.querySelector('#consultaId');
   const resumenInput = document.querySelector('#resumen');
   const derivacionInput = document.querySelector('#derivacion');
+  const diagnosticoInput = document.querySelector('#diagnostico');
   const tratamientoMedicamentoInput = document.querySelector('#tratamientoMedicamento');
   const tratamientoFrecuenciaInput = document.querySelector('#tratamientoFrecuencia');
   const tratamientoDuracionInput = document.querySelector('#tratamientoDuracion');
@@ -582,6 +636,7 @@ const catalogData = JSON.stringify({
       consultaId,
       resumen,
       derivacion: derivacionInput?.value ?? '',
+      diagnostico: diagnosticoInput?.value ?? '',
       tratamiento: treatments.length > 0 ? treatments : tratamientoLibre,
       ordenExamenes: selectedExams.join(', '),
     };

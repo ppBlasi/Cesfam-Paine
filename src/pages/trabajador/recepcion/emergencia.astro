@@ -1,0 +1,238 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import { prisma } from "../../../lib/prisma";
+
+const user = Astro.locals.user;
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+if (!user.isWorker && !user.isAdmin) {
+  return Astro.redirect("/");
+}
+
+const worker = await prisma.trabajador.findFirst({
+  where: { rut_trabajador: user.rut },
+  select: {
+    primer_nombre_trabajador: true,
+    segundo_nombre_trabajador: true,
+    apellido_p_trabajador: true,
+    apellido_m_trabajador: true,
+    estado_trabajador: true,
+    cargo: true,
+    especialidad: { select: { nombre_especialidad: true } },
+  },
+});
+
+if (!worker) {
+  return Astro.redirect(user.isAdmin ? "/admin" : "/perfil");
+}
+
+const isReception =
+  worker.cargo === "RECEPCION" || worker.especialidad?.nombre_especialidad === "Recepcion";
+
+if (!isReception && !user.isAdmin) {
+  return Astro.redirect("/trabajador");
+}
+
+const workerName = [
+  worker.primer_nombre_trabajador,
+  worker.segundo_nombre_trabajador,
+  worker.apellido_p_trabajador,
+  worker.apellido_m_trabajador,
+]
+  .filter(Boolean)
+  .join(" ");
+---
+
+<Layout title="Registro de emergencia">
+  <section class="bg-gradient-to-b from-[#f4f1fb] to-[#e9e2ff] py-12">
+    <div class="mx-auto flex max-w-4xl flex-col gap-8 px-4 sm:px-6">
+      <header class="rounded-3xl bg-[#200934] px-6 py-8 text-white shadow-xl">
+        <p class="text-sm uppercase tracking-[0.35em] text-white/70">Modulo de recepcion</p>
+        <h1 class="mt-3 text-3xl font-bold">Emergencia</h1>
+        <p class="mt-2 text-white/80">
+          Atendiendo: <span class="font-semibold text-white">{workerName}</span>
+        </p>
+        <p class="mt-1 text-white/70">
+          Estado: <span class="font-semibold text-white">{worker.estado_trabajador}</span>
+        </p>
+        <div class="mt-4 flex flex-wrap gap-3">
+          <a
+            href="/trabajador/recepcion"
+            class="inline-flex items-center justify-center rounded-2xl bg-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/25"
+          >
+            Volver a recepcion
+          </a>
+          <a
+            href="/trabajador"
+            class="inline-flex items-center justify-center rounded-2xl bg-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/25"
+          >
+            Panel principal
+          </a>
+        </div>
+        <p class="mt-4 text-sm text-white/70">
+          Usa este formulario rapido para capturar datos esenciales de pacientes que llegan por emergencia antes de derivarlos.
+        </p>
+      </header>
+
+      <section class="rounded-3xl bg-white p-6 shadow-lg">
+        <h2 class="text-xl font-semibold text-[#200934]">Datos del paciente</h2>
+        <p class="mt-1 text-sm text-[#200934]/70">
+          Completa todos los campos obligatorios para acelerar la atencion.
+        </p>
+
+        <form id="emergency-form" class="mt-6 space-y-4">
+          <div class="grid gap-4 md:grid-cols-2">
+            <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+              Nombre completo
+              <input
+                name="fullName"
+                type="text"
+                placeholder="Ej: Maria Perez Soto"
+                class="rounded-2xl border border-[#200934]/15 px-4 py-3 text-base text-[#200934] focus:border-[#200934] focus:outline-none focus:ring-2 focus:ring-[#200934]/20"
+                required
+              />
+            </label>
+            <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+              RUT
+              <input
+                name="rut"
+                type="text"
+                placeholder="11.111.111-1"
+                class="rounded-2xl border border-[#200934]/15 px-4 py-3 text-base text-[#200934] focus:border-[#200934] focus:outline-none focus:ring-2 focus:ring-[#200934]/20"
+                required
+              />
+            </label>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2">
+            <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+              Numero de telefono
+              <input
+                name="phone"
+                type="tel"
+                placeholder="+56 9 1234 5678"
+                class="rounded-2xl border border-[#200934]/15 px-4 py-3 text-base text-[#200934] focus:border-[#200934] focus:outline-none focus:ring-2 focus:ring-[#200934]/20"
+                required
+              />
+            </label>
+            <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+              Edad
+              <input
+                name="age"
+                type="number"
+                min="0"
+                max="120"
+                placeholder="Ej: 34"
+                class="rounded-2xl border border-[#200934]/15 px-4 py-3 text-base text-[#200934] focus:border-[#200934] focus:outline-none focus:ring-2 focus:ring-[#200934]/20"
+                required
+              />
+            </label>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2">
+            <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+              Fecha de nacimiento
+              <input
+                name="birthdate"
+                type="date"
+                class="rounded-2xl border border-[#200934]/15 px-4 py-3 text-base text-[#200934] focus:border-[#200934] focus:outline-none focus:ring-2 focus:ring-[#200934]/20"
+                required
+              />
+            </label>
+            <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+              Sexo
+              <select
+                name="sex"
+                class="rounded-2xl border border-[#200934]/15 px-4 py-3 text-base text-[#200934] focus:border-[#200934] focus:outline-none focus:ring-2 focus:ring-[#200934]/20"
+                required
+              >
+                <option value="">Selecciona una opcion</option>
+                <option value="Femenino">Femenino</option>
+                <option value="Masculino">Masculino</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
+            Direccion
+            <input
+              name="address"
+              type="text"
+              placeholder="Calle, numero y comuna"
+              class="rounded-2xl border border-[#200934]/15 px-4 py-3 text-base text-[#200934] focus:border-[#200934] focus:outline-none focus:ring-2 focus:ring-[#200934]/20"
+              required
+            />
+          </label>
+
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p class="text-xs text-[#200934]/70">
+              Al enviar se almacenara el registro y veras una confirmacion rapida.
+            </p>
+            <button
+              type="submit"
+              data-submit
+              class="inline-flex items-center justify-center rounded-2xl bg-[#321355] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#200934]"
+            >
+              Registrar emergencia
+            </button>
+          </div>
+
+          <div id="emergency-status" class="text-sm font-semibold text-[#200934]"></div>
+        </form>
+      </section>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  const form = document.getElementById("emergency-form");
+  const status = document.getElementById("emergency-status");
+  const submitButton = form?.querySelector("[data-submit]");
+
+  const setStatus = (message, isError = false) => {
+    if (!status) return;
+    status.textContent = message;
+    status.classList.toggle("text-emerald-700", !isError);
+    status.classList.toggle("text-rose-700", isError);
+  };
+
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!form || !status || !submitButton) return;
+
+    setStatus("");
+    submitButton.disabled = true;
+    const originalText = submitButton.textContent;
+    submitButton.textContent = "Guardando...";
+
+    const payload = Object.fromEntries(new FormData(form).entries());
+
+    try {
+      const response = await fetch("/api/recepcion/emergencias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || "No pudimos registrar la emergencia.");
+      }
+
+      setStatus("Emergencia registrada correctamente.", false);
+      form.reset();
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : "Error inesperado.";
+      setStatus(message, true);
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = originalText;
+    }
+  });
+</script>

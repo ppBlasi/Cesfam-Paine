@@ -161,12 +161,20 @@ const patientFullName = patient
         <p class="mt-4 text-sm text-white/60">
           Ingresa el RUT del paciente para revisar sus proximas reservas. Esta herramienta solo es visible para personal de recepcion.
         </p>
-        <a
-          href="/trabajador"
-          class="mt-6 inline-flex items-center justify-center rounded-2xl bg-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/25"
-        >
-          Volver al panel principal
-        </a>
+        <div class="mt-6 flex flex-wrap gap-3">
+          <a
+            href="/trabajador"
+            class="inline-flex items-center justify-center rounded-2xl bg-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/25"
+          >
+            Volver al panel principal
+          </a>
+          <a
+            href="/trabajador/recepcion/emergencia"
+            class="inline-flex items-center justify-center rounded-2xl bg-rose-100/90 px-4 py-2 text-sm font-semibold text-rose-900 transition hover:bg-rose-200"
+          >
+            Emergencia
+          </a>
+        </div>
       </header>
 
       <form class="rounded-3xl bg-white p-6 shadow-lg" method="GET">

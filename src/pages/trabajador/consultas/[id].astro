@@ -106,6 +106,22 @@ const medicamentosCatalogo: { nombre_medicamento: string }[] =
       })
     : [];
 
+const diagnosticoCatalogo = worker.especialidad
+  ? await prisma.enfermedadEspecialidad.findMany({
+      where: { id_especialidad: worker.especialidad.id_especialidad },
+      orderBy: { nombre_enfermedad: "asc" },
+    })
+  : [];
+
+const diagnosticoOptions = Array.from(
+  new Map(
+    diagnosticoCatalogo
+      .map((item) => item.nombre_enfermedad?.trim())
+      .filter(Boolean)
+      .map((name) => [name.toLowerCase(), name]),
+  ).values(),
+);
+
 const medicamentosSugeridos: string[] = medicamentosCatalogo.map(
   (item) => item.nombre_medicamento,
 );
@@ -157,16 +173,18 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
 
           {isGeneralDoctor ? (
             <label class="flex flex-col gap-2 text-sm font-semibold text-[#200934]">
-              Posible diagnóstico (Medicina General)
+              Posible diagnóstico
               <select
                 name="diagnostico"
                 data-diagnosis-select
                 class="rounded-2xl border border-[#200934]/20 px-4 py-3 text-sm text-[#200934] focus:border-[#200934] focus:outline-none"
               >
                 <option value="">Selecciona una opción</option>
-                <option value="Hipertensión arterial">Hipertensión arterial</option>
-                <option value="Diabetes mellitus tipo 2">Diabetes mellitus tipo 2</option>
-                <option value="Dislipidemia mixta">Dislipidemia mixta</option>
+                {diagnosticoOptions.length === 0 ? (
+                  <option disabled>No hay diagnósticos configurados</option>
+                ) : (
+                  diagnosticoOptions.map((nombre) => <option value={nombre}>{nombre}</option>)
+                )}
               </select>
             </label>
           ) : null}

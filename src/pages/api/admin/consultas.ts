@@ -38,6 +38,7 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
   const consultaId = Number((payload as Record<string, unknown>).consultaId);
   const resumen = String((payload as Record<string, unknown>).resumen ?? "").trim();
   const derivacion = String((payload as Record<string, unknown>).derivacion ?? "").trim();
+  const diagnostico = String((payload as Record<string, unknown>).diagnostico ?? "").trim();
   const tratamientoRaw = (payload as Record<string, unknown>).tratamiento;
   const ordenExamenes = String((payload as Record<string, unknown>).ordenExamenes ?? "").trim();
 
@@ -69,6 +70,7 @@ export const PUT: APIRoute = async ({ request, cookies }) => {
       data: {
         resumen,
         derivacion: derivacion || null,
+        diagnostico: diagnostico || null,
         tratamiento: (tratamiento ?? null) as any,
         orden_examenes: ordenExamenes || null,
         updated_at: new Date(),

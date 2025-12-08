@@ -44,6 +44,7 @@ const isNurse =
   (worker.cargo === "MEDICO" && specialtyName === "Enfermeria") || isTens;
 const isDoctor = worker.cargo === "MEDICO";
 const isReception = worker.cargo === "RECEPCION";
+const isAdmin = user.isAdmin || worker.cargo === "ADMIN";
 
 type WorkerOption = {
   title: string;
@@ -150,6 +151,11 @@ let toolsOptions: WorkerOption[] = isReception
         href: "/trabajador/recepcion",
         highlight: "Recepcion",
       },
+      {
+        title: "Emergencia",
+        description: "Registra datos basicos en caso de urgencias en ventanilla.",
+        href: "/trabajador/recepcion/emergencia",
+      },
     ]
   : specialtyOptions;
 
@@ -214,38 +220,57 @@ const workerFullName = [
         <article class="rounded-3xl bg-white p-6 shadow-lg md:col-span-2">
           <h2 class="text-xl font-semibold text-[#200934]">Tus herramientas</h2>
           <p class="mt-1 text-sm text-[#200934]/70">
-            Opciones disponibles para tu especialidad.
+            {isAdmin ? 'Accesos rapidos de administracion.' : 'Opciones disponibles para tu especialidad.'}
           </p>
 
-          <ul class="mt-5 space-y-4">
-            {toolsOptions.map((option) => (
-              <li class="rounded-2xl border border-[#200934]/10 p-4">
-                <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p class="text-base font-semibold text-[#200934]">{option.title}</p>
-                    <p class="text-sm text-[#200934]/70">{option.description}</p>
+          {isAdmin ? (
+            <div class="mt-5 space-y-3">
+              <a
+                href="/admin/trabajadores"
+                class="flex items-center justify-between rounded-2xl border border-[#200934]/10 bg-[#f7f4ff] px-4 py-3 text-sm font-semibold text-[#200934] shadow-sm transition hover:border-[#200934]/30 hover:bg-white"
+              >
+                <span>Administrar equipo y especialidades</span>
+                <span class="text-xs font-semibold text-[#321355]">Abrir</span>
+              </a>
+              <a
+                href="/admin"
+                class="flex items-center justify-between rounded-2xl border border-[#200934]/10 bg-[#f7f4ff] px-4 py-3 text-sm font-semibold text-[#200934] shadow-sm transition hover:border-[#200934]/30 hover:bg-white"
+              >
+                <span>Ir al panel administrativo</span>
+                <span class="text-xs font-semibold text-[#321355]">Abrir</span>
+              </a>
+            </div>
+          ) : (
+            <ul class="mt-5 space-y-4">
+              {toolsOptions.map((option) => (
+                <li class="rounded-2xl border border-[#200934]/10 p-4">
+                  <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p class="text-base font-semibold text-[#200934]">{option.title}</p>
+                      <p class="text-sm text-[#200934]/70">{option.description}</p>
+                    </div>
+                    {option.href ? (
+                      <a
+                        href={option.href}
+                        class="inline-flex items-center rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#200934]"
+                      >
+                        Abrir
+                      </a>
+                    ) : (
+                      <span class="inline-flex items-center rounded-2xl bg-[#200934]/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[#200934]/70">
+                        Proximamente
+                      </span>
+                    )}
                   </div>
-                  {option.href ? (
-                    <a
-                      href={option.href}
-                      class="inline-flex items-center rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#200934]"
-                    >
-                      Abrir
-                    </a>
-                  ) : (
-                    <span class="inline-flex items-center rounded-2xl bg-[#200934]/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[#200934]/70">
-                      Proximamente
-                    </span>
-                  )}
-                </div>
-                {option.highlight ? (
-                  <p class="mt-2 inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                    {option.highlight}
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+                  {option.highlight ? (
+                    <p class="mt-2 inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      {option.highlight}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
         </article>
 
         <aside class="rounded-3xl bg-white p-6 shadow-lg">

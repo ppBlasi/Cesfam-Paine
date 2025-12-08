@@ -288,3 +288,17 @@ model ConsultaMedicaSlot {
 
   @@map("consulta_medica_slot")
 }
+
+model Emergencia {
+  id         BigInt   @id @default(autoincrement())
+  fullName   String   @map("full_name")
+  rut        String
+  phone      String
+  age        Int
+  birthdate  DateTime @db.Date
+  sex        String
+  address    String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("emergencias")
+}
