@@ -109,19 +109,7 @@ type WorkerOption = {
 };
 
 const defaultOptions: WorkerOption[] = [
-  {
-    title: "Consultar agenda",
-    description: "Visualiza las reservas asignadas para organizar tus atenciones del dia.",
-  },
-  {
-    title: "Registrar actividad",
-    description: "Ingresa notas y observaciones de tus atenciones para mantener la ficha actualizada.",
-  },
-  {
-    title: "Canal de soporte",
-    description: "Contacta al equipo administrativo para resolver dudas o requerimientos.",
-    href: "mailto:admin@cesfam.cl",
-  },
+
 ];
 
 const optionsBySpecialty: Record<string, WorkerOption[]> = {
@@ -142,14 +130,7 @@ const optionsBySpecialty: Record<string, WorkerOption[]> = {
       href: "/admin/contenido",
     },
   ],
-  "Medicina General": [
-    {
-      title: "Pacientes con hora reservada",
-      description: "Ve todos los pacientes que tienes asignados para el dia de hoy y realizar consulta.",
-      href: "/trabajador/reservas-dia",
-
-    },
-  ],
+  "Medicina General": [],
   Enfermeria: [
     {
       title: "Emergencias",
@@ -239,16 +220,7 @@ if (isTens) {
       description: "Ingresa al panel de preingresos para recepcionar y preparar a los pacientes del día.",
       href: "/trabajador/preingreso",
     },
-    {
-      title: "Órdenes de exámenes",
-      description: "Agenda y adjunta resultados de exámenes médicos.",
-      href: "/trabajador/examenes",
-    },
-    {
-      title: "Emergencias",
-      description: "Revisa ingresos de emergencia registrados por recepcion.",
-      href: "/trabajador/emergencias",
-    },
+
   ];
 }
 
