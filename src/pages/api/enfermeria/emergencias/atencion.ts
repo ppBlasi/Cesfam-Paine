@@ -113,58 +113,51 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   try {
-    const result = await prisma.$queryRaw<
-      { id: bigint; emergencia_id: bigint; updated_at: Date; finished_at: Date | null }[]
-    >`
-      insert into emergency_attentions (
-        emergencia_id,
-        box,
-        estado,
-        motivo,
-        signos_vitales,
-        alergias,
-        resumen,
-        doctor_id,
-        nurse_id,
-        finished_at,
-        updated_at
-      )
-      values (
-        ${emergencyId},
-        ${box || null},
-        ${estado || null},
-        ${motivo || null},
-        ${signosVitales || null},
-        ${alergias || null},
-        ${resumen || null},
-        ${doctorId},
-        ${nurse.workerId},
-        now(),
-        now()
-      )
-      on conflict (emergencia_id)
-      do update set
-        box = excluded.box,
-        estado = excluded.estado,
-        motivo = excluded.motivo,
-        signos_vitales = excluded.signos_vitales,
-        alergias = excluded.alergias,
-        resumen = excluded.resumen,
-        doctor_id = excluded.doctor_id,
-        nurse_id = excluded.nurse_id,
-        finished_at = now(),
-        updated_at = now()
-      returning id, emergencia_id, finished_at, updated_at;
-    `;
+    const now = new Date();
 
-    const row = result?.[0];
+    const attention = await prisma.emergencyAttention.upsert({
+      where: { emergencia_id: emergencyId },
+      create: {
+        emergencia_id: emergencyId,
+        box: box || null,
+        estado: estado || null,
+        motivo: motivo || null,
+        signos_vitales: signosVitales || null,
+        alergias: alergias || null,
+        resumen: resumen || null,
+        doctor_id: doctorId,
+        nurse_id: nurse.workerId,
+        finished_at: now,
+        updated_at: now,
+      },
+      update: {
+        box: box || null,
+        estado: estado || null,
+        motivo: motivo || null,
+        signos_vitales: signosVitales || null,
+        alergias: alergias || null,
+        resumen: resumen || null,
+        doctor_id: doctorId,
+        nurse_id: nurse.workerId,
+        finished_at: now,
+        updated_at: now,
+      },
+      select: {
+        id: true,
+        emergencia_id: true,
+        finished_at: true,
+        updated_at: true,
+      },
+    });
 
     return jsonResponse(200, {
       message: "Emergencia marcada como finalizada.",
-      id: row?.id ? row.id.toString() : null,
-      emergenciaId: row?.emergencia_id ? row.emergencia_id.toString() : emergencyId.toString(),
-      finishedAt: row?.finished_at ?? null,
-      updatedAt: row?.updated_at ?? null,
+      id: attention.id ? attention.id.toString() : null,
+      emergenciaId: attention.emergencia_id
+        ? attention.emergencia_id.toString()
+        : emergencyId.toString(),
+      finishedAt: attention.finished_at ?? null,
+      updatedAt: attention.updated_at ?? null,
     });
   } catch (error) {
     console.error("emergency attention save error", error);

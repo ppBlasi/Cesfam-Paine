@@ -45,6 +45,62 @@ const isNurse =
 const isDoctor = worker.cargo === "MEDICO";
 const isReception = worker.cargo === "RECEPCION";
 const isAdmin = user.isAdmin || worker.cargo === "ADMIN";
+const todayStart = new Date();
+todayStart.setHours(0, 0, 0, 0);
+const todayEnd = new Date();
+todayEnd.setHours(23, 59, 59, 999);
+
+const todayExamOrders =
+  isNurse || isAdmin
+    ? await prisma.examOrder.findMany({
+        where: {
+          estado: { in: ["PENDIENTE", "AGENDADO"] },
+          scheduled_at: { gte: todayStart, lte: todayEnd },
+        },
+        orderBy: [{ scheduled_at: "asc" }, { created_at: "asc" }],
+        include: {
+          paciente: {
+            select: {
+              rut_paciente: true,
+              primer_nombre_paciente: true,
+              segundo_nombre_paciente: true,
+              apellido_p_paciente: true,
+              apellido_m_paciente: true,
+            },
+          },
+        },
+      })
+    : [];
+
+const realizedExamOrders =
+  isNurse || isAdmin
+    ? await prisma.examOrder.findMany({
+        where: { estado: "REALIZADO" },
+        orderBy: [{ updated_at: "desc" }],
+        include: {
+          paciente: {
+            select: {
+              rut_paciente: true,
+              primer_nombre_paciente: true,
+              segundo_nombre_paciente: true,
+              apellido_p_paciente: true,
+              apellido_m_paciente: true,
+            },
+          },
+        },
+      })
+    : [];
+
+const formatPatientName = (patient: (typeof todayExamOrders)[number]["paciente"]) =>
+  [
+    patient?.primer_nombre_paciente,
+    patient?.segundo_nombre_paciente,
+    patient?.apellido_p_paciente,
+    patient?.apellido_m_paciente,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
 
 type WorkerOption = {
   title: string;
@@ -99,6 +155,11 @@ const optionsBySpecialty: Record<string, WorkerOption[]> = {
       title: "Emergencias",
       description: "Revisa ingresos de emergencia registrados por recepcion.",
       href: "/trabajador/emergencias",
+    },
+    {
+      title: "Órdenes de exámenes",
+      description: "Agenda y sube resultados de exámenes solicitados por medicos.",
+      href: "/trabajador/examenes",
     },
   ],
   Kinesiologia: [
@@ -177,6 +238,16 @@ if (isTens) {
       title: "Preingreso",
       description: "Ingresa al panel de preingresos para recepcionar y preparar a los pacientes del día.",
       href: "/trabajador/preingreso",
+    },
+    {
+      title: "Órdenes de exámenes",
+      description: "Agenda y adjunta resultados de exámenes médicos.",
+      href: "/trabajador/examenes",
+    },
+    {
+      title: "Emergencias",
+      description: "Revisa ingresos de emergencia registrados por recepcion.",
+      href: "/trabajador/emergencias",
     },
   ];
 }
@@ -292,6 +363,7 @@ const workerFullName = [
           </p>
         </aside>
       </section>
+
     </div>
   </section>
 </Layout>

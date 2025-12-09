@@ -65,6 +65,16 @@ const reservasPendientes = await prisma.reserva.count({
                 Revisar y editar consultas registradas
               </a>
             </li>
+            <li>
+              <a href="/admin/examenes" class="block rounded-2xl border border-[#200934]/15 px-4 py-3 transition hover:border-[#200934]/30 hover:bg-[#f7f4ff]">
+                Ver exámenes cargados
+              </a>
+            </li>
+            <li>
+              <a href="/admin/emergencias" class="block rounded-2xl border border-[#200934]/15 px-4 py-3 transition hover:border-[#200934]/30 hover:bg-[#f7f4ff]">
+                Emergencias realizadas y finalizadas
+              </a>
+            </li>
 
           </ul>
         </article>

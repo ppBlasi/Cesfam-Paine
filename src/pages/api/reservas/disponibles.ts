@@ -55,6 +55,13 @@ const humanizeDate = (value: Date) =>
     day: "numeric",
   });
 
+const normalizeSpecialty = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
 const getConsumedSpecialties = async (patientId: number | null) => {
   if (!patientId) return new Map<string, Date>();
   const records = await prisma.disponibilidadTrabajador.findMany({
@@ -171,18 +178,58 @@ export const GET: APIRoute = async ({ request, cookies }) => {
 
   const now = new Date();
 
-  const patient = await prisma.paciente.findFirst({
-    where: { rut_paciente: session.usuario.rut },
-    select: { id_paciente: true },
+const patient = await prisma.paciente.findFirst({
+  where: { rut_paciente: session.usuario.rut },
+  select: { id_paciente: true },
+});
+
+const pendingExamOrders =
+  patient?.id_paciente
+    ? await prisma.examOrder.findMany({
+        where: {
+          paciente_id: patient.id_paciente,
+          estado: "PENDIENTE",
+          scheduled_at: null,
+        },
+        select: {
+          id: true,
+          nombre_examen: true,
+          created_at: true,
+        },
+        orderBy: [{ created_at: "desc" }],
+      })
+    : [];
+
+const { allowed: allowedSpecialtiesSet, preferredSpecialty } = await getAllowedSpecialties(patient?.id_paciente ?? null);
+
+if (pendingExamOrders.length > 0) {
+  allowedSpecialtiesSet.add("Enfermeria");
+}
+  const specialtiesCatalog = await prisma.especialidad.findMany({
+    select: { nombre_especialidad: true },
   });
 
-  const { allowed: allowedSpecialtiesSet, preferredSpecialty } = await getAllowedSpecialties(patient?.id_paciente ?? null);
-  const allowedSpecialties = Array.from(allowedSpecialtiesSet);
-  const allowedNormalized = new Set(allowedSpecialties.map((name) => name.toLowerCase()));
+  const allowedSpecialtiesAll = Array.from(allowedSpecialtiesSet);
+  const allowedNormalized = new Set(allowedSpecialtiesAll.map((name) => normalizeSpecialty(name)));
+  const allowedFromCatalog = specialtiesCatalog
+    .map((item) => item.nombre_especialidad?.trim())
+    .filter((name) => name && allowedNormalized.has(normalizeSpecialty(name)));
+
   const requestedSpecialty =
-    hasSpecialtyParam && allowedNormalized.has(specialtyParam.toLowerCase()) && specialtyParam
+    hasSpecialtyParam && allowedNormalized.has(normalizeSpecialty(specialtyParam)) && specialtyParam
       ? specialtyParam
       : null;
+
+  const allowNurse = pendingExamOrders.length > 0;
+  const allowedSpecialties = Array.from(new Set([...allowedSpecialtiesSet, ...allowedFromCatalog])).filter((name) => {
+    const normalized = normalizeSpecialty(name ?? "");
+    if (!allowNurse && normalized === "enfermeria") return false;
+    return Boolean(name?.trim());
+  });
+
+  if (allowedSpecialties.length === 0) {
+    allowedSpecialties.push(GENERAL_SPECIALTY_NAME);
+  }
 
   const rawSlots = await prisma.disponibilidadTrabajador.findMany({
     where: {
@@ -231,17 +278,27 @@ export const GET: APIRoute = async ({ request, cookies }) => {
   }
 
   const specialtiesList = Array.from(specialtiesSet);
-  const normalizedSpecialties = new Set(specialtiesList.map((name) => name.toLowerCase()));
-  const preferredFromAvailability =
-    preferredSpecialty &&
-    specialtiesList.some((name) => name.toLowerCase() === preferredSpecialty.toLowerCase())
-      ? preferredSpecialty
-      : null;
+  const normalizedSpecialties = new Set(specialtiesList.map((name) => normalizeSpecialty(name)));
+  let preferredFromAvailability: string | null = null;
+  if (preferredSpecialty) {
+    const match = specialtiesList.find(
+      (name) => normalizeSpecialty(name) === normalizeSpecialty(preferredSpecialty),
+    );
+    preferredFromAvailability = match ?? null;
+  }
   const selectedSpecialty =
-    (requestedSpecialty && normalizedSpecialties.has(requestedSpecialty.toLowerCase()) && requestedSpecialty) ||
+    (requestedSpecialty &&
+      normalizedSpecialties.has(normalizeSpecialty(requestedSpecialty)) &&
+      specialtiesList.find((name) => normalizeSpecialty(name) === normalizeSpecialty(requestedSpecialty))) ||
     preferredFromAvailability ||
-    (specialtiesList.find((name) => allowedNormalized.has(name.toLowerCase())) ?? GENERAL_SPECIALTY_NAME);
-  const normalizedSelected = selectedSpecialty.toLowerCase();
+    (specialtiesList.find((name) => allowedNormalized.has(normalizeSpecialty(name))) ?? GENERAL_SPECIALTY_NAME);
+  const normalizedSelected = normalizeSpecialty(selectedSpecialty);
+  const selectedSpecialtyVariants = specialtiesList.filter(
+    (name) => normalizeSpecialty(name) === normalizedSelected,
+  );
+
+  const bookingSpecialtyFilter =
+    selectedSpecialtyVariants.length > 0 ? { in: selectedSpecialtyVariants } : selectedSpecialty;
 
   const existingBooking = patient
     ? await prisma.disponibilidadTrabajador.findFirst({
@@ -250,7 +307,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
           estado: { in: ["reservado", "confirmado", "ingresado", "en_curso"] },
           fecha: { gte: now },
           trabajador: {
-            especialidad: { nombre_especialidad: selectedSpecialty },
+            especialidad: { nombre_especialidad: bookingSpecialtyFilter },
           },
         },
         orderBy: { fecha: "asc" },
@@ -272,7 +329,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
 
   const slots = rawSlots.filter((slot) => {
     const slotSpecialty = slot.trabajador.especialidad?.nombre_especialidad ?? GENERAL_SPECIALTY_NAME;
-    return slotSpecialty.toLowerCase() === normalizedSelected;
+    return normalizeSpecialty(slotSpecialty) === normalizedSelected;
   });
 
   const grouped = new Map<
@@ -357,6 +414,11 @@ export const GET: APIRoute = async ({ request, cookies }) => {
     },
     specialties: specialtiesList,
     selectedSpecialty,
+    examOrders: pendingExamOrders.map((order) => ({
+      id: order.id.toString(),
+      nombre: order.nombre_examen,
+      createdAt: order.created_at,
+    })),
     totalSlots: slots.length,
     days,
     existingBooking: existingBooking

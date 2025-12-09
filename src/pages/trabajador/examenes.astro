@@ -1,0 +1,489 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { prisma } from "../../lib/prisma";
+
+const user = Astro.locals.user;
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+if (!user.isWorker && !user.isAdmin) {
+  return Astro.redirect("/");
+}
+
+const worker = await prisma.trabajador.findFirst({
+  where: { rut_trabajador: user.rut },
+  include: {
+    especialidad: {
+      select: {
+        nombre_especialidad: true,
+      },
+    },
+  },
+});
+
+if (!worker) {
+  return Astro.redirect(user.isAdmin ? "/admin" : "/perfil");
+}
+
+const isNurse =
+  worker.cargo === "TENS" ||
+  (worker.cargo === "MEDICO" && worker.especialidad?.nombre_especialidad === "Enfermeria");
+
+if (!isNurse && !user.isAdmin) {
+  return Astro.redirect("/trabajador");
+}
+
+type ExamOrderRow = {
+  id: string;
+  nombre: string;
+  estado: string;
+  paciente: string;
+  consultaId: number;
+  resumen: string | null;
+  scheduledAt: Date | null;
+  createdAt: Date | null;
+};
+
+const orders = await prisma.examOrder.findMany({
+  where: { estado: { in: ["PENDIENTE", "AGENDADO"] } },
+  orderBy: [{ scheduled_at: "asc" }, { created_at: "asc" }],
+  include: {
+    paciente: {
+      select: {
+        primer_nombre_paciente: true,
+        segundo_nombre_paciente: true,
+        apellido_p_paciente: true,
+        apellido_m_paciente: true,
+      },
+    },
+    consulta: {
+      select: {
+        id_consulta: true,
+        resumen: true,
+        created_at: true,
+      },
+    },
+  },
+});
+
+const ordersMapped: ExamOrderRow[] = orders.map((order) => ({
+  id: order.id.toString(),
+  nombre: order.nombre_examen,
+  estado: order.estado,
+  paciente:
+    [
+      order.paciente?.primer_nombre_paciente,
+      order.paciente?.segundo_nombre_paciente,
+      order.paciente?.apellido_p_paciente,
+      order.paciente?.apellido_m_paciente,
+    ]
+      .filter(Boolean)
+      .join(" ") || "Paciente sin nombre",
+  consultaId: order.consulta?.id_consulta ?? 0,
+  resumen: order.consulta?.resumen ?? null,
+  scheduledAt: order.scheduled_at ?? null,
+  createdAt: order.created_at ?? null,
+}));
+
+const formatDateTime = (value: Date | null | undefined) =>
+  value ? value.toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" }) : "Sin fecha";
+
+const nurseSlots =
+  isNurse || user.isAdmin
+    ? await prisma.disponibilidadTrabajador.findMany({
+        where: {
+          id_trabajador: worker.id_trabajador,
+          estado: "disponible",
+          fecha: { gte: new Date() },
+        },
+        orderBy: { fecha: "asc" },
+        take: 50,
+      })
+    : [];
+
+const realizedOrders =
+  isNurse || user.isAdmin
+    ? await prisma.examOrder.findMany({
+        where: { estado: "REALIZADO", resultado_url: null },
+        orderBy: [{ updated_at: "desc" }],
+        include: {
+          paciente: {
+            select: {
+              rut_paciente: true,
+              primer_nombre_paciente: true,
+              segundo_nombre_paciente: true,
+              apellido_p_paciente: true,
+              apellido_m_paciente: true,
+            },
+          },
+        },
+      })
+    : [];
+---
+
+<Layout title="Órdenes de exámenes">
+  <section class="bg-gradient-to-b from-[#f4f1fb] to-[#e9e2ff] py-12">
+    <div class="mx-auto flex max-w-6xl flex-col gap-8 px-4 sm:px-6">
+      <header class="rounded-3xl bg-[#200934] px-6 py-8 text-white shadow-xl">
+        <p class="text-sm uppercase tracking-[0.35em] text-white/70">Enfermeria</p>
+        <h1 class="mt-3 text-3xl font-bold">Órdenes de exámenes</h1>
+        <p class="mt-2 max-w-3xl text-white/80">
+          Gestiona los exámenes solicitados por los médicos: agenda fecha y carga resultados para cerrarlos.
+        </p>
+        <div class="mt-4 flex flex-wrap gap-3">
+          <a
+            href="/trabajador"
+            class="inline-flex items-center justify-center rounded-2xl bg-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/25"
+          >
+            Volver al panel
+          </a>
+        </div>
+      </header>
+
+      {ordersMapped.length > 0 ? (
+        <div class="grid gap-4">
+          {ordersMapped.map((order) => (
+            <article
+              class="rounded-3xl border border-[#200934]/10 bg-white p-5 shadow-sm"
+              data-order-item
+              data-order-id={order.id}
+            >
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p class="text-sm uppercase tracking-[0.2em] text-[#321355]/70">Examen</p>
+                  <h3 class="text-xl font-semibold text-[#200934]">{order.nombre}</h3>
+                  <p class="text-sm text-[#200934]/70">Paciente: {order.paciente}</p>
+                  <p class="text-sm text-[#200934]/70">Consulta #{order.consultaId || "N/D"}</p>
+                  <p class="text-xs text-[#200934]/60">Creada: {formatDateTime(order.createdAt)}</p>
+                </div>
+                <span
+                  class={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                    order.estado === "AGENDADO"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-blue-100 text-blue-700"
+                  }`}
+                >
+                  {order.estado}
+                </span>
+              </div>
+
+              <p class="mt-3 rounded-2xl bg-[#f8f6ff] px-4 py-3 text-sm text-[#200934]/80">
+                Resumen: {order.resumen ?? "Sin resumen"}
+              </p>
+
+              <div class="mt-4">
+                <button
+                  type="button"
+                  data-finalize-btn
+                  class="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                >
+                  Examen realizado
+                </button>
+              </div>
+
+              <div class="mt-3 space-y-2 text-sm">
+                <p class="hidden rounded-2xl bg-green-50 px-4 py-2 font-semibold text-green-700" data-success></p>
+                <p class="hidden rounded-2xl bg-red-50 px-4 py-2 font-semibold text-red-700" data-error></p>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p class="rounded-3xl border border-dashed border-[#200934]/20 bg-white/70 p-6 text-sm text-[#200934]/70">
+          No hay órdenes de exámenes pendientes o agendadas.
+        </p>
+      )}
+
+      <article class="rounded-3xl bg-white p-6 shadow-xl">
+        <header class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p class="text-sm uppercase tracking-[0.2em] text-[#200934]/60">Órdenes realizadas</p>
+            <h2 class="text-xl font-semibold text-[#200934]">Cargar examen</h2>
+            <p class="text-xs text-[#200934]/70">Sube resultados de exámenes ya realizados y filtra por RUT.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-semibold text-[#200934]/70" for="rut-filter">Filtrar por RUT</label>
+            <input
+              id="rut-filter"
+              type="search"
+              placeholder="Ingresa RUT"
+              data-rut-filter
+              class="w-36 rounded-xl border border-[#200934]/20 px-3 py-2 text-xs text-[#200934] outline-none focus:border-[#321355] focus:ring-2 focus:ring-[#321355]/20"
+            />
+          </div>
+        </header>
+
+        {realizedOrders.length > 0 ? (
+          <ul class="mt-4 space-y-3" data-realized-list>
+            {realizedOrders.map((order) => (
+              <li
+                class="rounded-2xl border border-[#200934]/10 bg-[#f9f7ff] p-4"
+                data-realized-item
+                data-order-id={order.id.toString()}
+                data-rut={order.paciente?.rut_paciente ?? ""}
+              >
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p class="text-sm font-semibold text-[#200934]">{order.nombre_examen}</p>
+                    <p class="text-sm text-[#200934]/70">
+                      Paciente:{" "}
+                      {[
+                        order.paciente?.primer_nombre_paciente,
+                        order.paciente?.segundo_nombre_paciente,
+                        order.paciente?.apellido_p_paciente,
+                        order.paciente?.apellido_m_paciente,
+                      ]
+                        .filter(Boolean)
+                        .join(" ") || "Paciente sin nombre"}
+                    </p>
+                    <p class="text-xs text-[#200934]/60">RUT: {order.paciente?.rut_paciente ?? "N/D"}</p>
+                    <p class="text-xs text-[#200934]/60">
+                      Actualizado:{" "}
+                      {order.updated_at
+                        ? new Date(order.updated_at).toLocaleString("es-CL", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })
+                        : "Sin fecha"}
+                    </p>
+                  </div>
+                  {order.resultado_url ? (
+                    <a
+                      href={order.resultado_url}
+                      class="text-xs font-semibold text-emerald-700 underline"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Ver archivo
+                    </a>
+                  ) : (
+                    <span class="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-700">Pendiente de archivo</span>
+                  )}
+                </div>
+                <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                  <input
+                    type="file"
+                    accept=".pdf,image/*"
+                    data-upload-file
+                    class="text-xs text-[#200934]"
+                  />
+                  <button
+                    type="button"
+                    data-upload-btn
+                    class="inline-flex items-center justify-center rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#200934]"
+                  >
+                    Subir resultado
+                  </button>
+                </div>
+                <p class="hidden mt-2 rounded-2xl bg-green-50 px-3 py-2 text-xs font-semibold text-green-700" data-success></p>
+                <p class="hidden mt-2 rounded-2xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-700" data-error></p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="mt-4 rounded-2xl border border-dashed border-[#200934]/20 bg-[#faf7ff] p-4 text-sm text-[#200934]/70">
+            No hay exámenes realizados pendientes de archivo.
+          </p>
+        )}
+      </article>
+    </div>
+  </section>
+
+  <div
+    data-confirm-modal
+    class="fixed inset-0 z-40 hidden items-center justify-center bg-black/50 px-4"
+  >
+    <div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+      <p class="text-lg font-semibold text-[#200934]">¿Estas seguro que realizaste el examen?</p>
+      <p class="mt-2 text-sm text-[#200934]/70">Confirma para marcar la orden como realizada.</p>
+      <div class="mt-5 flex justify-end gap-3">
+        <button
+          type="button"
+          data-confirm-no
+          class="rounded-2xl border border-[#200934]/15 px-4 py-2 text-sm font-semibold text-[#200934] transition hover:border-[#321355]/40"
+        >
+          No
+        </button>
+        <button
+          type="button"
+          data-confirm-yes
+          class="rounded-2xl bg-[#321355] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#200934]"
+        >
+          Si
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const orderItems = Array.from(document.querySelectorAll("[data-order-item]"));
+      const confirmModal = document.querySelector("[data-confirm-modal]");
+      const confirmYes = confirmModal?.querySelector("[data-confirm-yes]");
+      const confirmNo = confirmModal?.querySelector("[data-confirm-no]");
+      let currentFinalizeId: string | null = null;
+
+      const showMessage = (container: Element | null, type: "success" | "error", text: string) => {
+        if (!container) return;
+        const successEl = container.querySelector("[data-success]");
+        const errorEl = container.querySelector("[data-error]");
+        if (successEl) successEl.classList.add("hidden");
+        if (errorEl) errorEl.classList.add("hidden");
+        const target = type === "success" ? successEl : errorEl;
+        if (target) {
+          target.textContent = text;
+          target.classList.remove("hidden");
+        }
+      };
+
+      orderItems.forEach((item) => {
+        const orderId = (item as HTMLElement).dataset.orderId ?? "";
+        const scheduleBtn = item.querySelector("[data-schedule-btn]");
+        const scheduleSelect = item.querySelector("[data-schedule-select]");
+        const finalizeBtn = item.querySelector("[data-finalize-btn]");
+
+        scheduleBtn?.addEventListener("click", async () => {
+          if (!scheduleSelect || !(scheduleSelect instanceof HTMLSelectElement)) return;
+          const availabilityId = scheduleSelect.value;
+          if (!availabilityId) {
+            showMessage(item, "error", "Selecciona una hora de enfermería disponible."); 
+            return;
+          }
+
+          try {
+            scheduleBtn.setAttribute("disabled", "true");
+            scheduleBtn.textContent = "Guardando...";
+            const response = await fetch("/api/enfermeria/examenes/agendar", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ examOrderId: orderId, availabilityId }),
+            });
+            const result = await response.json().catch(() => null);
+            if (!response.ok || !result) {
+              throw new Error(result?.error ?? "No pudimos agendar el examen.");
+            }
+            showMessage(item, "success", result.message ?? "Orden agendada.");
+            window.location.reload();
+          } catch (error) {
+            showMessage(
+              item,
+              "error",
+              error instanceof Error ? error.message : "Ocurrio un error inesperado.",
+            );
+          } finally {
+            scheduleBtn.removeAttribute("disabled");
+            scheduleBtn.textContent = "Agendar";
+          }
+        });
+
+        finalizeBtn?.addEventListener("click", () => {
+          currentFinalizeId = orderId;
+          if (confirmModal instanceof HTMLElement) {
+            confirmModal.classList.remove("hidden");
+            confirmModal.classList.add("flex");
+          }
+        });
+      });
+
+      const rutFilter = document.querySelector("[data-rut-filter]");
+      const realizedItems = Array.from(document.querySelectorAll("[data-realized-item]"));
+      rutFilter?.addEventListener("input", () => {
+        if (!(rutFilter instanceof HTMLInputElement)) return;
+        const term = rutFilter.value.trim().toLowerCase();
+        realizedItems.forEach((item) => {
+          const rut = (item as HTMLElement).dataset.rut?.toLowerCase() ?? "";
+          const match = !term || rut.includes(term);
+          item.classList.toggle("hidden", !match);
+        });
+      });
+
+      document.querySelectorAll("[data-realized-item]").forEach((item) => {
+        const uploadBtn = item.querySelector("[data-upload-btn]");
+        const fileInput = item.querySelector("[data-upload-file]");
+        const orderId = item.getAttribute("data-order-id") ?? "";
+
+        uploadBtn?.addEventListener("click", async () => {
+          if (!(uploadBtn instanceof HTMLButtonElement)) return;
+          if (!(fileInput instanceof HTMLInputElement) || !fileInput.files || fileInput.files.length === 0) {
+            showMessage(item, "error", "Adjunta un archivo para subir el resultado.");
+            return;
+          }
+
+          const formData = new FormData();
+          formData.set("examOrderId", orderId);
+          formData.set("file", fileInput.files[0]);
+
+          try {
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = "Subiendo...";
+            const response = await fetch("/api/enfermeria/examenes/resultado", {
+              method: "POST",
+              body: formData,
+            });
+            const result = await response.json().catch(() => null);
+            if (!response.ok || !result) {
+              throw new Error(result?.error ?? "No pudimos guardar el resultado.");
+            }
+            showMessage(item, "success", result.message ?? "Resultado cargado.");
+            window.location.reload();
+          } catch (error) {
+            showMessage(
+              item,
+              "error",
+              error instanceof Error ? error.message : "Ocurrio un error inesperado.",
+            );
+          } finally {
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = "Subir resultado";
+          }
+        });
+      });
+
+      confirmNo?.addEventListener("click", () => {
+        currentFinalizeId = null;
+        if (confirmModal instanceof HTMLElement) {
+          confirmModal.classList.add("hidden");
+          confirmModal.classList.remove("flex");
+        }
+      });
+
+      confirmYes?.addEventListener("click", async () => {
+        if (!(confirmYes instanceof HTMLButtonElement)) return;
+        if (!currentFinalizeId) return;
+        const item = document.querySelector(`[data-order-item][data-order-id="${currentFinalizeId}"]`);
+        if (!item) return;
+        try {
+          confirmYes.disabled = true;
+          confirmYes.textContent = "Guardando...";
+          const response = await fetch("/api/enfermeria/examenes/finalizar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ examOrderId: currentFinalizeId }),
+          });
+          const result = await response.json().catch(() => null);
+          if (!response.ok || !result) {
+            throw new Error(result?.error ?? "No pudimos actualizar el examen.");
+          }
+          showMessage(item, "success", result.message ?? "Examen marcado como realizado.");
+          window.location.reload();
+        } catch (error) {
+          showMessage(
+            item,
+            "error",
+            error instanceof Error ? error.message : "Ocurrio un error inesperado.",
+          );
+        } finally {
+          confirmYes.disabled = false;
+          confirmYes.textContent = "Si";
+          if (confirmModal instanceof HTMLElement) {
+            confirmModal.classList.add("hidden");
+            confirmModal.classList.remove("flex");
+          }
+          currentFinalizeId = null;
+        }
+      });
+    });
+  </script>
+</Layout>

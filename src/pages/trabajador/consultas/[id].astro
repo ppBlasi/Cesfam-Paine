@@ -126,6 +126,22 @@ const medicamentosSugeridos: string[] = medicamentosCatalogo.map(
   (item) => item.nombre_medicamento,
 );
 const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
+
+const enfermedadesIniciales: string[] = [];
+
+const patientExams = await prisma.examOrder.findMany({
+  where: { paciente_id: patient.id_paciente },
+  orderBy: [{ created_at: "desc" }],
+  select: {
+    id: true,
+    nombre_examen: true,
+    estado: true,
+    resultado_url: true,
+    scheduled_at: true,
+    created_at: true,
+    updated_at: true,
+  },
+});
 ---
 
 <Layout title="Consulta en curso">
@@ -299,6 +315,28 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
             ) : (
               <p class="mt-1 text-xs text-[#200934]/60">No hay exámenes asociados a tu especialidad.</p>
             )}
+            <div class="mt-4 flex flex-col gap-2">
+              <label class="text-xs font-semibold text-[#200934]">Agregar enfermedades</label>
+              <div class="flex flex-wrap items-center gap-2">
+                <select
+                  data-disease-select
+                  class="rounded-xl border border-[#200934]/20 px-3 py-2 text-xs text-[#200934] focus:border-[#200934] focus:outline-none"
+                >
+                  <option value="">Selecciona una enfermedad</option>
+                  {diagnosticoOptions.map((nombre) => (
+                    <option value={nombre}>{nombre}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  data-add-disease
+                  class="rounded-2xl bg-[#321355] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#200934]"
+                >
+                  Agregar enfermedad
+                </button>
+              </div>
+              <div class="flex flex-wrap gap-2" data-disease-list></div>
+            </div>
           </label>
 
           <div class="border-t-2"></div>
@@ -319,6 +357,13 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
               data-patient-id={patient.id_paciente}
             >
               Ver antecedentes crónicos
+            </button>
+            <button
+              type="button"
+              class="rounded-2xl bg-[#f4f1fb] px-4 py-2 text-sm font-semibold text-[#200934] transition hover:bg-[#e7def5]"
+              data-exams-button
+            >
+              Ver exámenes
             </button>
             <button
               type="button"
@@ -360,6 +405,57 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
   </div>
 </div>
 
+<div id="exams-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
+  <div class="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl" data-exams-container>
+    <div class="flex items-center justify-between">
+      <h3 class="text-xl font-semibold text-[#200934]">Exámenes del paciente</h3>
+      <button type="button" class="text-sm font-semibold text-[#200934]" data-exams-close>Cerrar</button>
+    </div>
+    <div class="mt-4 space-y-3 text-sm text-[#200934]" data-exams-content>
+      {patientExams.length > 0 ? (
+        patientExams.map((exam) => (
+          <div class="rounded-2xl border border-[#200934]/10 bg-[#f9f7ff] p-4">
+            <p class="text-sm font-semibold text-[#200934]">{exam.nombre_examen}</p>
+            <p class="text-xs text-[#200934]/70">Estado: {exam.estado}</p>
+            <p class="text-xs text-[#200934]/70">
+              Solicitado:{" "}
+              {exam.created_at
+                ? new Date(exam.created_at).toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" })
+                : "Sin fecha"}
+            </p>
+            <p class="text-xs text-[#200934]/70">
+              Agenda:{" "}
+              {exam.scheduled_at
+                ? new Date(exam.scheduled_at).toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" })
+                : "Sin fecha"}
+            </p>
+            <p class="text-xs text-[#200934]/70">
+              Última actualización:{" "}
+              {exam.updated_at
+                ? new Date(exam.updated_at).toLocaleString("es-CL", { dateStyle: "medium", timeStyle: "short" })
+                : "Sin fecha"}
+            </p>
+            {exam.resultado_url ? (
+              <a
+                href={exam.resultado_url}
+                class="mt-2 inline-flex text-xs font-semibold text-emerald-700 underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Ver resultado
+              </a>
+            ) : (
+              <p class="mt-2 text-[11px] font-semibold text-amber-700">Resultado pendiente</p>
+            )}
+          </div>
+        ))
+      ) : (
+        <p class="text-sm text-[#200934]/70">No hay exámenes registrados para este paciente.</p>
+      )}
+    </div>
+  </div>
+</div>
+
 <div id="consult-confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
   <div class="w-full max-w-md rounded-3xl bg-white p-6 text-center shadow-2xl">
     <p class="text-lg font-semibold text-[#200934]">¿Estas seguro que quieres terminar la consulta?</p>
@@ -377,13 +473,16 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
   const form = document.querySelector("[data-consultation-form]");
   const historyModal = document.getElementById("history-modal");
   const chronicModal = document.getElementById("chronic-modal");
+  const examsModal = document.getElementById("exams-modal");
   const confirmModal = document.getElementById("consult-confirm-modal");
   const historyContent = historyModal?.querySelector("[data-history-content]");
   const chronicContent = chronicModal?.querySelector("[data-chronic-content]");
+  const examsContent = examsModal?.querySelector("[data-exams-content]");
   const confirmNo = confirmModal?.querySelector("[data-confirm-no]");
   const confirmYes = confirmModal?.querySelector("[data-confirm-yes]");
   const historyButton = document.querySelector("[data-history-button]");
   const chronicButton = document.querySelector("[data-chronic-button]");
+  const examsButton = document.querySelector("[data-exams-button]");
   const saveButton = document.querySelector("[data-save-button]");
   const addTreatmentButton = form?.querySelector("[data-add-treatment]");
   const treatmentList = form?.querySelector("[data-treatment-list]");
@@ -395,6 +494,9 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
   const examsField = form?.querySelector("[data-exams-field]");
   const selectedExamsContainer = form?.querySelector("[data-exams-selected]");
   const examButtons = Array.from(form?.querySelectorAll("[data-exam-suggest]") ?? []);
+  const diseaseSelect = form?.querySelector("[data-disease-select]");
+  const addDiseaseBtn = form?.querySelector("[data-add-disease]");
+  const diseaseListEl = form?.querySelector("[data-disease-list]");
   const feedback = form?.querySelector("[data-feedback]");
   const errorBox = form?.querySelector("[data-error]");
   const slotId = Number(form?.slotId.value);
@@ -419,6 +521,8 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
   })();
   let pendingPayload = null;
   let treatments = [];
+  /** @type {string[]} */
+  let selectedDiseases = [];
 
   const toggleModal = (modal, show) => {
     if (!modal) return;
@@ -506,6 +610,47 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
 
   renderSelectedExams();
   renderMedOptions();
+  const renderDiseases = () => {
+    if (!(diseaseListEl instanceof HTMLElement)) return;
+    if (selectedDiseases.length === 0) {
+      diseaseListEl.innerHTML = `<span class="text-xs text-[#200934]/60">Sin enfermedades agregadas.</span>`;
+      return;
+    }
+    diseaseListEl.innerHTML = selectedDiseases
+      .map(
+        (name, idx) => `
+        <span class="inline-flex items-center gap-2 rounded-full bg-[#f4f1fb] px-3 py-1 text-xs font-semibold text-[#200934]">
+          ${name}
+          <button type="button" data-remove-disease="${idx}" class="text-rose-600">×</button>
+        </span>
+      `,
+      )
+      .join("");
+
+    diseaseListEl.querySelectorAll("[data-remove-disease]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        const target = event.currentTarget;
+        const index =
+          target instanceof HTMLElement
+            ? Number(target.dataset.removeDisease)
+            : Number.NaN;
+        if (!Number.isInteger(index)) return;
+        selectedDiseases.splice(index, 1);
+        renderDiseases();
+      });
+    });
+  };
+
+  addDiseaseBtn?.addEventListener("click", () => {
+    if (!(diseaseSelect instanceof HTMLSelectElement)) return;
+    const name = diseaseSelect.value.trim();
+    if (!name) return;
+    if (!selectedDiseases.includes(name)) {
+      selectedDiseases.push(name);
+      renderDiseases();
+    }
+    diseaseSelect.value = "";
+  });
 
   treatmentMedSelect?.addEventListener("change", toggleTreatmentFields);
   toggleTreatmentFields();
@@ -660,6 +805,7 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
   };
 
   renderTreatments();
+  renderDiseases();
 
   addTreatmentButton?.addEventListener("click", () => {
     const medicamento = treatmentMedSelect?.value.trim() ?? "";
@@ -684,7 +830,6 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
     renderMedOptions();
 
     treatmentFreqInput.value = "";
-    treatmentDoseInput.value = "";
     treatmentDurationInput.value = "";
     if (treatmentFields instanceof HTMLElement) {
       treatmentFields.toggleAttribute("hidden", true);
@@ -732,6 +877,7 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
       derivacion,
       tratamientos: treatments,
       exams: examsField?.value.trim() ?? "",
+      enfermedades: selectedDiseases,
     };
     toggleModal(confirmModal, true);
   });
@@ -760,6 +906,7 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
           derivacion: pendingPayload.derivacion,
           tratamientos: pendingPayload.tratamientos,
           ordenExamenes: pendingPayload.exams,
+          enfermedades: pendingPayload.enfermedades ?? [],
         }),
       });
       feedback.hidden = false;
@@ -789,6 +936,15 @@ const medicamentosJson = JSON.stringify(medicamentosSugeridos ?? []);
   chronicModal?.addEventListener("click", (event) => {
     if (event.target === chronicModal || event.target?.dataset?.chronicClose !== undefined) {
       toggleModal(chronicModal, false);
+    }
+  });
+
+  const examsClose = examsModal?.querySelector("[data-exams-close]");
+  examsButton?.addEventListener("click", () => toggleModal(examsModal, true));
+  examsClose?.addEventListener("click", () => toggleModal(examsModal, false));
+  examsModal?.addEventListener("click", (event) => {
+    if (event.target === examsModal || event.target?.dataset?.examsClose !== undefined) {
+      toggleModal(examsModal, false);
     }
   });
 </script>

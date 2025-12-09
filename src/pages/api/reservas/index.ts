@@ -20,6 +20,12 @@ const jsonResponse = (status: number, payload: unknown) =>
 
 const MAX_NOTES_LENGTH = 240;
 const CANCELLED_STATUS = "cancelado";
+const normalizeSpecialty = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 
 const getConsumedSpecialties = async (patientId: number) => {
   const records = await prisma.disponibilidadTrabajador.findMany({
@@ -52,7 +58,7 @@ const getConsumedSpecialties = async (patientId: number) => {
   return consumed;
 };
 
-const getAllowedSpecialties = async (patientId: number) => {
+const getAllowedSpecialties = async (patientId: number, pendingExamOrders: Array<{ nombre_examen: string }> = []) => {
   const allowed = new Set<string>([GENERAL_SPECIALTY_NAME]);
 
   const consumed = await getConsumedSpecialties(patientId);
@@ -77,6 +83,10 @@ const getAllowedSpecialties = async (patientId: number) => {
     const derivationAt = item.created_at ?? new Date(0);
     if (consumedAt && derivationAt <= consumedAt) continue;
     allowed.add(name);
+  }
+
+  if (pendingExamOrders.length > 0) {
+    allowed.add("Enfermeria");
   }
 
   return allowed;
@@ -161,7 +171,17 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   await cancelPastBookings(patient.id_paciente);
 
-  const allowedSpecialtiesSet = await getAllowedSpecialties(patient.id_paciente);
+  const pendingExamOrders = await prisma.examOrder.findMany({
+    where: {
+      paciente_id: patient.id_paciente,
+      estado: "PENDIENTE",
+      scheduled_at: null,
+    },
+    select: { id: true, nombre_examen: true },
+  });
+
+  const allowedSpecialtiesSet = await getAllowedSpecialties(patient.id_paciente, pendingExamOrders);
+  const allowedNormalized = new Set(Array.from(allowedSpecialtiesSet).map((name) => normalizeSpecialty(name)));
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -172,8 +192,10 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         select: {
           estado: true,
           fecha: true,
+          id_disponibilidad: true,
           trabajador: {
             select: {
+              id_trabajador: true,
               estado_trabajador: true,
               especialidad: {
                 select: { nombre_especialidad: true },
@@ -188,7 +210,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       }
 
       const slotSpecialty = slot.trabajador.especialidad?.nombre_especialidad ?? GENERAL_SPECIALTY_NAME;
-      if (!allowedSpecialtiesSet.has(slotSpecialty)) {
+      const slotSpecialtyNormalized = normalizeSpecialty(slotSpecialty);
+      if (!allowedNormalized.has(slotSpecialtyNormalized)) {
         throw new Error("specialty-not-allowed");
       }
 
@@ -208,6 +231,33 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
       if (existingBooking) {
         throw new Error("specialty-already-booked");
+      }
+
+      let examOrderId: bigint | null = null;
+      if (slotSpecialtyNormalized === "enfermeria") {
+        const examIdRaw = (payload as Record<string, unknown>).examOrderId;
+        if (examIdRaw === undefined || examIdRaw === null || examIdRaw === "") {
+          throw new Error("exam-required");
+        }
+        try {
+          examOrderId = BigInt(
+            typeof examIdRaw === "string" || typeof examIdRaw === "number" ? examIdRaw : "",
+          );
+        } catch {
+          throw new Error("exam-invalid");
+        }
+
+        const examOrder = await tx.examOrder.findUnique({
+          where: { id: examOrderId },
+          select: { id: true, paciente_id: true, estado: true, scheduled_at: true },
+        });
+
+        if (!examOrder || examOrder.paciente_id !== patient.id_paciente) {
+          throw new Error("exam-not-found");
+        }
+        if (examOrder.estado !== "PENDIENTE" || examOrder.scheduled_at) {
+          throw new Error("exam-already-scheduled");
+        }
       }
 
       if (slot.estado !== "disponible" || slot.fecha < now || slot.trabajador.estado_trabajador !== "Activo") {
@@ -237,7 +287,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         throw new Error("slot-not-available");
       }
 
-      return tx.disponibilidadTrabajador.findUnique({
+      const booking = await tx.disponibilidadTrabajador.findUnique({
         where: { id_disponibilidad: availabilityId },
         include: {
           trabajador: {
@@ -254,6 +304,24 @@ export const POST: APIRoute = async ({ request, cookies }) => {
           },
         },
       });
+
+      if (!booking) {
+        throw new Error("slot-not-found");
+      }
+
+      if (slotSpecialty.toLowerCase() === "enfermeria" && examOrderId) {
+        await tx.examOrder.update({
+          where: { id: examOrderId },
+          data: {
+            estado: "AGENDADO",
+            scheduled_at: booking.fecha,
+            nurse_id: booking.trabajador.id_trabajador,
+            updated_at: new Date(),
+          },
+        });
+      }
+
+      return booking;
     });
 
     if (!result) {
@@ -303,6 +371,22 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         return jsonResponse(409, {
           error: "No puede reservar 2 horas para una misma especialidad. Ya tienes una hora reservada.",
         });
+      }
+
+      if (error instanceof Error && error.message === "exam-required") {
+        return jsonResponse(400, { error: "Debes seleccionar el examen que quieres agendar." });
+      }
+
+      if (error instanceof Error && error.message === "exam-invalid") {
+        return jsonResponse(400, { error: "Examen invalido." });
+      }
+
+      if (error instanceof Error && error.message === "exam-not-found") {
+        return jsonResponse(404, { error: "No encontramos el examen seleccionado." });
+      }
+
+      if (error instanceof Error && error.message === "exam-already-scheduled") {
+        return jsonResponse(409, { error: "Este examen ya tiene una hora agendada." });
       }
 
       console.error("reserve slot error", error);

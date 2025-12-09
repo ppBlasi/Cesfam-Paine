@@ -46,6 +46,44 @@
             <option v-for="opt in specialtyOptions" :key="opt" :value="opt">{{ opt }}</option>
           </select>
           <p class="text-xs text-white/70">Selecciona una especialidad para ver el calendario.</p>
+
+          <div
+            v-if="selectedSpecialty === 'Enfermeria'"
+            class="rounded-2xl border border-white/20 bg-white/5 p-3"
+          >
+            <p class="text-xs font-semibold text-white">Exámenes pendientes</p>
+            <p class="text-[11px] text-white/70">
+              Debes seleccionar un examen para agendar. Solo se permite una hora por examen.
+            </p>
+            <div v-if="examOrders.length > 0" class="mt-2 space-y-2">
+              <label
+                v-for="exam in examOrders"
+                :key="exam.id"
+                class="flex cursor-pointer items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-white/90 hover:bg-white/20"
+              >
+                <input
+                  type="radio"
+                  name="exam-order"
+                  class="text-[#321355]"
+                  :value="exam.id"
+                  v-model="selectedExamId"
+                />
+                <span class="flex-1">
+                  {{ exam.nombre }}
+                  <span class="block text-[11px] text-white/70">
+                    Solicitado: {{
+                      exam.createdAt
+                        ? new Date(exam.createdAt).toLocaleDateString("es-CL", { dateStyle: "medium" })
+                        : "Sin fecha"
+                    }}
+                  </span>
+                </span>
+              </label>
+            </div>
+            <p v-else class="mt-2 rounded-xl bg-amber-200/20 px-3 py-2 text-[11px] font-semibold text-amber-100">
+              No tienes exámenes pendientes para agendar con enfermería.
+            </p>
+          </div>
         </div>
 
         <div v-if="selectedSpecialty" class="flex flex-col gap-6 lg:flex-row">
@@ -228,6 +266,8 @@ const minDate = ref(null);
 const maxDate = ref(null);
 const selectedSpecialty = ref(GENERAL_SPECIALTY);
 const specialties = ref([]);
+const examOrders = ref([]);
+const selectedExamId = ref("");
 const showConfirm = ref(false);
 const pendingEntry = ref(null);
 const hasManualSpecialtySelection = ref(false);
@@ -261,8 +301,14 @@ const fetchAvailability = async () => {
       throw new Error(data.error ?? "No pudimos cargar las horas disponibles.");
     }
     const data = await response.json();
-    const apiSpecialties = Array.isArray(data.specialties) ? data.specialties : [];
-    specialties.value = Array.from(new Set([GENERAL_SPECIALTY, ...apiSpecialties]));
+  const apiSpecialties = Array.isArray(data.specialties) ? data.specialties : [];
+  specialties.value = Array.from(new Set([GENERAL_SPECIALTY, ...apiSpecialties]));
+  examOrders.value = Array.isArray(data.examOrders) ? data.examOrders : [];
+  if (selectedSpecialty.value === "Enfermeria" && examOrders.value.length === 0) {
+    error.value = "No tienes exámenes pendientes para agendar con enfermería.";
+  } else {
+    error.value = "";
+  }
     selectedSpecialty.value =
       rescheduleSpecialty.value ||
       data.selectedSpecialty ||
@@ -366,6 +412,10 @@ const specialtyOptions = computed(() => {
 
 const selectSlot = (slot) => {
   if (hasExistingBooking.value) return;
+  if (selectedSpecialty.value === "Enfermeria" && examOrders.value.length > 0 && !selectedExamId.value) {
+    error.value = "Selecciona el examen que quieres agendar.";
+    return;
+  }
   selectedSlot.value = slot;
   note.value = "";
   successMessage.value = "";
@@ -376,6 +426,28 @@ watch(selectedDateKey, () => {
   note.value = "";
   successMessage.value = "";
 });
+
+watch(
+  () => selectedSpecialty.value,
+  (value) => {
+    if (value !== "Enfermeria") {
+      selectedExamId.value = "";
+    } else if (examOrders.value.length === 0) {
+      error.value = "No tienes exámenes pendientes para agendar con enfermería.";
+    } else {
+      error.value = "";
+    }
+  },
+);
+
+watch(
+  () => selectedExamId.value,
+  () => {
+    if (selectedSpecialty.value === "Enfermeria" && selectedExamId.value) {
+      error.value = "";
+    }
+  },
+);
 
 const slotButtonClass = (slot) => {
   const base =
@@ -388,6 +460,10 @@ const slotButtonClass = (slot) => {
 
 const askForConfirmation = (entry) => {
   if (hasExistingBooking.value) return;
+  if (selectedSpecialty.value === "Enfermeria" && examOrders.value.length > 0 && !selectedExamId.value) {
+    error.value = "Selecciona el examen que quieres agendar.";
+    return;
+  }
   pendingEntry.value = entry;
   showConfirm.value = true;
   successMessage.value = "";
@@ -446,6 +522,7 @@ const reserve = async () => {
       body: JSON.stringify({
         disponibilidadId: pendingEntry.value.disponibilidadId,
         nota: note.value,
+        examOrderId: selectedSpecialty.value === "Enfermeria" ? selectedExamId.value : "",
       }),
     });
 

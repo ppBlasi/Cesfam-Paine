@@ -58,6 +58,11 @@ export const POST: APIRoute = async ({ request, cookies, params }) => {
     ? (payload as Record<string, unknown>).tratamientos
     : [];
   const ordenExamenes = String((payload as Record<string, unknown>).ordenExamenes ?? "").trim() || null;
+  const enfermedades =
+    Array.isArray((payload as Record<string, unknown>).enfermedades) &&
+    (payload as Record<string, unknown>).enfermedades.every((item) => typeof item === "string")
+      ? ((payload as Record<string, unknown>).enfermedades as string[])
+      : [];
 
   if (!Number.isInteger(patientId) || patientId <= 0) {
     return jsonResponse(400, { error: "Paciente inválido." });
@@ -79,15 +84,29 @@ export const POST: APIRoute = async ({ request, cookies, params }) => {
   const workerSpecialty = worker.especialidad?.nombre_especialidad ?? "";
   const allowDerivation = workerSpecialty === GENERAL_SPECIALTY_NAME;
   const derivacion = allowDerivation ? rawDerivacion : null;
+  const diagnosticoFinal =
+    enfermedades.length > 0
+      ? [diagnostico, enfermedades.filter(Boolean).join(", ")].filter(Boolean).join(" | Enfermedades: ")
+      : diagnostico;
+
+  const parseOrders = (value: string | null) =>
+    Array.from(
+      new Set(
+        (value ?? "")
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean),
+      ),
+    );
 
   try {
-    await prisma.consultaMedicaSlot.upsert({
+    const saved = await prisma.consultaMedicaSlot.upsert({
       where: { id_disponibilidad: slotId },
       update: {
         id_paciente: patientId,
         resumen,
         derivacion,
-        diagnostico,
+        diagnostico: diagnosticoFinal,
         tratamiento: (tratamiento as unknown) as any,
         orden_examenes: ordenExamenes,
         updated_at: new Date(),
@@ -97,11 +116,36 @@ export const POST: APIRoute = async ({ request, cookies, params }) => {
         id_paciente: patientId,
         resumen,
         derivacion,
-        diagnostico,
+        diagnostico: diagnosticoFinal,
         tratamiento: (tratamiento as unknown) as any,
         orden_examenes: ordenExamenes,
       },
+      select: { id_consulta: true },
     });
+
+    const orders = parseOrders(ordenExamenes);
+    if (orders.length > 0 && saved?.id_consulta) {
+      const now = new Date();
+      await Promise.all(
+        orders.map((examName) =>
+          prisma.examOrder.upsert({
+            where: { consulta_id_nombre_examen: { consulta_id: saved.id_consulta, nombre_examen: examName } },
+            update: {
+              estado: "PENDIENTE",
+              updated_at: now,
+            },
+            create: {
+              consulta_id: saved.id_consulta,
+              paciente_id: patientId,
+              nombre_examen: examName,
+              estado: "PENDIENTE",
+              created_at: now,
+              updated_at: now,
+            },
+          }),
+        ),
+      );
+    }
   } catch (error) {
     console.error("finalizar consulta error", error);
     return jsonResponse(500, { error: "No pudimos guardar la consulta." });
